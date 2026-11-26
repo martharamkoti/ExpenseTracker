@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "677102700423",
+    "project_id": "moneytrack-2125c",
+    "storage_bucket": "moneytrack-2125c.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:677102700423:android:b14577aa7529be0664f522",
+        "android_client_info": {
+          "package_name": "com.ramkotimartha.expensetracker"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDhQrnHrR7YF4nxd2OZA8xQfiXeK5m0c5U"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

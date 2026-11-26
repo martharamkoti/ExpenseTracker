@@ -1,0 +1,149 @@
+{
+  "events": [
+    {
+      "event_name": "screen_view_home",
+      "trigger": "User views the Home screen.",
+      "description": "Logged when the main dashboard is visible."
+    },
+    {
+      "event_name": "screen_view_stats",
+      "trigger": "User views the Stats screen.",
+      "description": "Logged when the monthly insights and charts are visible."
+    },
+    {
+      "event_name": "screen_view_tags",
+      "trigger": "User views the Manage Tags screen.",
+      "description": "Logged when the tag management UI is visible."
+    },
+    {
+      "event_name": "screen_view_about",
+      "trigger": "User views the About screen.",
+      "description": "Logged when the app information screen is visible."
+    },
+    {
+      "event_name": "screen_view_add_transaction",
+      "trigger": "User opens the screen to add a new transaction.",
+      "description": "Logged when the transaction editor is in 'new' mode."
+    },
+    {
+      "event_name": "screen_view_edit_transaction",
+      "trigger": "User opens the screen to edit an existing transaction.",
+      "description": "Logged when the transaction editor is in 'edit' mode."
+    },
+    {
+      "event_name": "click_add_transaction_fab",
+      "trigger": "User taps the floating action button (+) on the Home screen.",
+      "description": "Signals the user's intent to create a new transaction."
+    },
+    {
+      "event_name": "month_navigate_previous",
+      "trigger": "User taps the '<' arrow on the Home or Stats screen.",
+      "description": "Tracks engagement with the primary date navigation."
+    },
+    {
+      "event_name": "month_navigate_next",
+      "trigger": "User taps the '>' arrow on the Home or Stats screen.",
+      "description": "Tracks engagement with the primary date navigation."
+    },
+    {
+      "event_name": "drawer_open",
+      "trigger": "User taps the hamburger menu icon.",
+      "description": "Signals an interaction with the secondary navigation menu."
+    },
+    {
+      "event_name": "drawer_select_theme",
+      "trigger": "User taps 'Theme' in the navigation drawer.",
+      "description": "Tracks user interest in changing the app's appearance."
+    },
+    {
+      "event_name": "drawer_select_about",
+      "trigger": "User taps 'About this app' in the navigation drawer.",
+      "description": "Tracks how many users are viewing the app's metadata."
+    },
+    {
+      "event_name": "theme_change",
+      "trigger": "User selects a new theme from the theme dialog.",
+      "description": "Captures which theme was selected ('theme_name' parameter)."
+    },
+    {
+      "event_name": "transaction_save_new",
+      "trigger": "User successfully saves a new transaction.",
+      "description": "Primary conversion event for adding a new data point."
+    },
+    {
+      "event_name": "transaction_save_edit",
+      "trigger": "User successfully saves changes to an existing transaction.",
+      "description": "Tracks how often users correct or update their entries."
+    },
+    {
+      "event_name": "transaction_delete",
+      "trigger": "User deletes a transaction from the bottom sheet.",
+      "description": "Tracks a key destructive action."
+    },
+    {
+      "event_name": "transaction_editor_close",
+      "trigger": "User closes the Add/Edit screen without saving.",
+      "description": "Indicates abandonment of the creation/editing flow."
+    },
+    {
+      "event_name": "tag_add_new",
+      "trigger": "User creates a new tag from within the Add/Edit screen.",
+      "description": "Measures engagement with the in-line tag creation feature."
+    },
+    {
+      "event_name": "tag_add_new_from_tags_screen",
+      "trigger": "User creates a new tag from the dedicated 'Manage Tags' screen.",
+      "description": "Differentiates tag creation context."
+    },
+    {
+      "event_name": "tag_delete",
+      "trigger": "User confirms deletion of a tag from the confirmation sheet.",
+      "description": "Tracks a key destructive action for data management."
+    },
+    {
+      "event_name": "about_navigate_back",
+      "trigger": "User taps the back arrow on the 'About' screen.",
+      "description": "Confirms the user has finished viewing the 'About' content."
+    },
+    {
+      "event_name": "click_toggle_transaction_type",
+      "trigger": "User taps the Income/Expense toggle on the Add/Edit screen.",
+      "description": "Tracks user switching between income and expense modes."
+    },
+    {
+      "event_name": "click_open_date_picker",
+      "trigger": "User taps the date selector on the Add/Edit screen.",
+      "description": "Measures how often users change the transaction date."
+    },
+    {
+      "event_name": "confirm_date_selection",
+      "trigger": "User confirms a date in the date picker.",
+      "description": "Tracks successful date changes."
+    },
+    {
+      "event_name": "cancel_date_selection",
+      "trigger": "User cancels the date picker dialog.",
+      "description": "Tracks abandonment of the date selection flow."
+    },
+    {
+      "event_name": "click_select_tag",
+      "trigger": "User taps a tag chip to select a category.",
+      "description": "Logs which tag was selected ('tag_name' parameter)."
+    },
+    {
+      "event_name": "click_open_add_tag_dialog",
+      "trigger": "User taps the '+' chip to add a new tag.",
+      "description": "Measures engagement with in-line tag creation."
+    },
+    {
+      "event_name": "cancel_add_tag",
+      "trigger": "User cancels the 'Add Tag' dialog.",
+      "description": "Tracks abandonment of the in-line tag creation flow."
+    },
+    {
+      "event_name": "click_save_transaction_invalid",
+      "trigger": "User taps 'Save' when the form is invalid (e.g., no tag).",
+      "description": "Tracks user attempts to save with incomplete data."
+    }
+  ]
+}
