@@ -154,6 +154,41 @@
       "event_name": "tag_auto_suggestion_overridden",
       "trigger": "User manually selects a different tag after an auto-suggestion.",
       "description": "Tracks manual overrides ('suggested_tag' vs 'selected_tag') to gauge suggestion accuracy."
+    },
+    {
+      "event_name": "receipt_scan_open",
+      "trigger": "User taps 'Scan Receipt' or 'Rescan'.",
+      "description": "Opens the camera/gallery receipt source sheet."
+    },
+    {
+      "event_name": "receipt_scan_camera",
+      "trigger": "User selects 'Take Photo' to scan a receipt.",
+      "description": "Tracks camera capture usage for receipt scanning."
+    },
+    {
+      "event_name": "receipt_scan_gallery",
+      "trigger": "User selects 'Choose from Gallery' to scan a receipt.",
+      "description": "Tracks gallery image selection usage for receipt scanning."
+    },
+    {
+      "event_name": "receipt_scan_success",
+      "trigger": "On-device OCR extracts structured fields from a receipt.",
+      "description": "Tracks successful receipt field extraction."
+    },
+    {
+      "event_name": "receipt_scan_empty",
+      "trigger": "On-device OCR finds no structured fields on the selected image.",
+      "description": "Tracks unreadable or non-receipt images."
+    },
+    {
+      "event_name": "receipt_scan_save",
+      "trigger": "User confirms and saves an expense from the Receipt Review screen.",
+      "description": "Primary conversion event for the AI receipt scanner."
+    },
+    {
+      "event_name": "screen_view_receipt_review",
+      "trigger": "User views the editable Receipt Review screen.",
+      "description": "Logged when extracted receipt fields are displayed for verification."
     }
   ]
 }

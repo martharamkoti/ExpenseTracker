@@ -18,6 +18,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.rounded.AutoAwesome
+import androidx.compose.material.icons.rounded.DocumentScanner
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -109,7 +110,8 @@ fun AddTransactionScreen(
     onSave: (amount: Double, type: TransactionType, tagId: Long, note: String?, timestamp: Long) -> Unit,
     onAddTag: (name: String, type: TransactionType) -> Unit,
     onClose: () -> Unit,
-    onSuggestTag: (note: String, type: TransactionType, availableTags: List<Tag>) -> TagSuggestion? = { _, _, _ -> null }
+    onSuggestTag: (note: String, type: TransactionType, availableTags: List<Tag>) -> TagSuggestion? = { _, _, _ -> null },
+    onScanReceiptClick: (() -> Unit)? = null
 ) {
     var amount by remember { 
         mutableStateOf(
@@ -299,6 +301,60 @@ fun AddTransactionScreen(
                         )
                     ) {
                         Text(type.name, style = MaterialTheme.typography.labelLarge)
+                    }
+                }
+            }
+
+            // Scan Receipt quick-action banner (shown when adding a new Expense)
+            AnimatedVisibility(
+                visible = selectedType == TransactionType.EXPENSE &&
+                    initialTransaction == null &&
+                    onScanReceiptClick != null,
+                enter = fadeIn(),
+                exit = fadeOut()
+            ) {
+                Surface(
+                    onClick = { onScanReceiptClick?.invoke() },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp),
+                    color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f),
+                    border = BorderStroke(
+                        1.dp,
+                        MaterialTheme.colorScheme.primary.copy(alpha = 0.25f)
+                    )
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.DocumentScanner,
+                            contentDescription = "Scan Receipt",
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(22.dp)
+                        )
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "Scan Receipt",
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Text(
+                                text = "Auto-extract amount, date & category from photo",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        Icon(
+                            imageVector = Icons.Rounded.AutoAwesome,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(16.dp)
+                        )
                     }
                 }
             }

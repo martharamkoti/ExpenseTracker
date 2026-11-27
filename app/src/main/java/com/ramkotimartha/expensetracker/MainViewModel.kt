@@ -1,8 +1,12 @@
 package com.ramkotimartha.expensetracker
 
 import android.app.Application
+import android.content.Context
+import android.net.Uri
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.ramkotimartha.expensetracker.ai.ReceiptScanner
+import com.ramkotimartha.expensetracker.ai.ScannedReceiptResult
 import com.ramkotimartha.expensetracker.ai.SmartTagSuggester
 import com.ramkotimartha.expensetracker.ai.TagSuggestion
 import com.ramkotimartha.expensetracker.data.*
@@ -105,6 +109,20 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         return SmartTagSuggester.suggestTag(
             note = note,
             type = type,
+            availableTags = tags,
+            pastTransactions = allTransactions.value
+        )
+    }
+
+    suspend fun scanReceipt(
+        context: Context,
+        imageUri: Uri,
+        candidateTags: List<Tag>? = null
+    ): ScannedReceiptResult {
+        val tags = candidateTags ?: expenseTags.value
+        return ReceiptScanner.scanReceipt(
+            context = context,
+            imageUri = imageUri,
             availableTags = tags,
             pastTransactions = allTransactions.value
         )

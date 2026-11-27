@@ -73,6 +73,10 @@ dependencies {
     implementation(libs.androidx.appcompat)
     implementation(libs.material)
 
+    // On-device Receipt OCR & Image Orientation
+    implementation(libs.mlkit.text.recognition)
+    implementation(libs.androidx.exifinterface)
+
     // Unit Testing
     testImplementation(libs.junit)
     testImplementation(libs.mockk)
