@@ -144,6 +144,16 @@
       "event_name": "click_save_transaction_invalid",
       "trigger": "User taps 'Save' when the form is invalid (e.g., no tag).",
       "description": "Tracks user attempts to save with incomplete data."
+    },
+    {
+      "event_name": "tag_auto_suggested",
+      "trigger": "SmartTagSuggester auto-selects a matching tag based on the note.",
+      "description": "Logs auto-suggested tag name ('tag_name') and signal ('source')."
+    },
+    {
+      "event_name": "tag_auto_suggestion_overridden",
+      "trigger": "User manually selects a different tag after an auto-suggestion.",
+      "description": "Tracks manual overrides ('suggested_tag' vs 'selected_tag') to gauge suggestion accuracy."
     }
   ]
 }

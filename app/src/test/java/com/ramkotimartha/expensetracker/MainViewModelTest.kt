@@ -104,4 +104,21 @@ class MainViewModelTest {
 
         coVerify { transactionDao.deleteTransaction(transaction) }
     }
+
+    @Test
+    fun `suggestTag returns matching tag for candidate tags`() {
+        val tags = listOf(
+            Tag(id = 1L, name = "Food", type = TransactionType.EXPENSE),
+            Tag(id = 2L, name = "Transport", type = TransactionType.EXPENSE)
+        )
+
+        val suggestion = viewModel.suggestTag(
+            note = "Uber cab ride",
+            type = TransactionType.EXPENSE,
+            candidateTags = tags
+        )
+
+        Assert.assertNotNull(suggestion)
+        Assert.assertEquals("Transport", suggestion?.tag?.name)
+    }
 }

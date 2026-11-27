@@ -162,7 +162,10 @@ fun MainApp(viewModel: MainViewModel) {
                     AnalyticsLogger.logEvent("tag_add_new")
                     viewModel.addTag(name, type)
                 },
-                onClose = { closeAddEditScreen() }
+                onClose = { closeAddEditScreen() },
+                onSuggestTag = { note, type, tags ->
+                    viewModel.suggestTag(note, type, tags)
+                }
             )
         } else {
             Scaffold(

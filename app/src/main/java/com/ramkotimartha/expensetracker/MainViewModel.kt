@@ -3,6 +3,8 @@ package com.ramkotimartha.expensetracker
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.ramkotimartha.expensetracker.ai.SmartTagSuggester
+import com.ramkotimartha.expensetracker.ai.TagSuggestion
 import com.ramkotimartha.expensetracker.data.*
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
@@ -89,5 +91,22 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             repository.deleteTag(tag)
         }
+    }
+
+    fun suggestTag(
+        note: String,
+        type: TransactionType,
+        candidateTags: List<Tag>? = null
+    ): TagSuggestion? {
+        val tags = candidateTags ?: when (type) {
+            TransactionType.INCOME -> incomeTags.value
+            TransactionType.EXPENSE -> expenseTags.value
+        }
+        return SmartTagSuggester.suggestTag(
+            note = note,
+            type = type,
+            availableTags = tags,
+            pastTransactions = allTransactions.value
+        )
     }
 }
