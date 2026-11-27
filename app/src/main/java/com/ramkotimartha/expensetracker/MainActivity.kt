@@ -21,6 +21,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.BarChart
 import androidx.compose.material.icons.rounded.Home
 import androidx.compose.material.icons.rounded.Info
@@ -71,6 +72,7 @@ class MainActivity : ComponentActivity() {
 sealed class Screen(val route: String, val title: String, val icon: ImageVector) {
     object Home : Screen("home", "Home", Icons.Rounded.Home)
     object Stats : Screen("stats", "Stats", Icons.Rounded.BarChart)
+    object Coach : Screen("coach", "Coach", Icons.Rounded.AutoAwesome)
     object Tags : Screen("tags", "Tags", Icons.Rounded.Sell)
     object About : Screen("about", "About", Icons.Rounded.Info)
 }
@@ -100,6 +102,7 @@ fun MainApp(viewModel: MainViewModel) {
     val tagsInUse by viewModel.tagsInUse.collectAsState()
     val selectedMonth by viewModel.selectedMonth.collectAsState()
     val currentTheme by viewModel.theme.collectAsState()
+    val coachUiState by viewModel.coachUiState.collectAsState()
 
     val allAvailableTags = incomeTags + expenseTags
     val latestExpenseTags by rememberUpdatedState(expenseTags)
@@ -321,7 +324,7 @@ fun MainApp(viewModel: MainViewModel) {
                 bottomBar = {
                     if (currentScreen != Screen.About) {
                         NavigationBar {
-                            val items = listOf(Screen.Home, Screen.Stats, Screen.Tags)
+                            val items = listOf(Screen.Home, Screen.Stats, Screen.Coach, Screen.Tags)
                             items.forEach { screen ->
                                 NavigationBarItem(
                                     icon = { Icon(screen.icon, contentDescription = screen.title) },
@@ -382,6 +385,41 @@ fun MainApp(viewModel: MainViewModel) {
                             onNextMonth = { 
                                 AnalyticsLogger.logEvent("month_navigate_next")
                                 viewModel.nextMonth() 
+                            },
+                            onAskCoachClick = {
+                                AnalyticsLogger.logEvent("coach_open_from_stats")
+                                currentScreen = Screen.Coach
+                            }
+                        )
+                        Screen.Coach -> FinanceCoachScreen(
+                            selectedMonth = selectedMonth,
+                            transactions = transactions,
+                            uiState = coachUiState,
+                            onMenuClick = {
+                                AnalyticsLogger.logEvent("drawer_open")
+                                scope.launch { drawerState.open() }
+                            },
+                            onSendQuestion = { question ->
+                                AnalyticsLogger.logEvent("coach_question_sent")
+                                viewModel.askFinanceCoach(question)
+                            },
+                            onPromptChipClick = { prompt ->
+                                AnalyticsLogger.logEvent("coach_prompt_chip_clicked")
+                                viewModel.askFinanceCoach(prompt)
+                            },
+                            onRetry = {
+                                viewModel.retryLastCoachQuestion()
+                            },
+                            onDismissError = {
+                                viewModel.clearCoachError()
+                            },
+                            onClearChat = {
+                                AnalyticsLogger.logEvent("coach_chat_cleared")
+                                viewModel.clearCoachConversation()
+                            },
+                            onAddTransactionClick = {
+                                AnalyticsLogger.logEvent("click_add_transaction_fab")
+                                showAddScreen = true
                             }
                         )
                         Screen.Tags -> TagManagementScreen(

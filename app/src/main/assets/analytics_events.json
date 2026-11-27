@@ -189,6 +189,31 @@
       "event_name": "screen_view_receipt_review",
       "trigger": "User views the editable Receipt Review screen.",
       "description": "Logged when extracted receipt fields are displayed for verification."
+    },
+    {
+      "event_name": "screen_view_coach",
+      "trigger": "User views the Finance Coach screen.",
+      "description": "Logged when the conversational AI Finance Coach is visible."
+    },
+    {
+      "event_name": "coach_question_sent",
+      "trigger": "User submits a custom question in Finance Coach.",
+      "description": "Tracks natural-language Finance Coach queries."
+    },
+    {
+      "event_name": "coach_prompt_chip_clicked",
+      "trigger": "User taps a starter or follow-up prompt chip in Finance Coach.",
+      "description": "Tracks engagement with guided Finance Coach prompts."
+    },
+    {
+      "event_name": "coach_chat_cleared",
+      "trigger": "User clears the Finance Coach conversation.",
+      "description": "Tracks session resets in Finance Coach."
+    },
+    {
+      "event_name": "coach_open_from_stats",
+      "trigger": "User taps 'Ask Coach' from the Stats Insights card.",
+      "description": "Tracks contextual entry into Finance Coach from Monthly Stats."
     }
   ]
 }

@@ -121,4 +121,38 @@ class MainViewModelTest {
         Assert.assertNotNull(suggestion)
         Assert.assertEquals("Transport", suggestion?.tag?.name)
     }
+
+    @Test
+    fun `askFinanceCoach transitions from loading to grounded assistant reply`() = runTest {
+        val foodTag = Tag(id = 1L, name = "Food", type = TransactionType.EXPENSE)
+        val sampleTx = TransactionWithTag(
+            transaction = Transaction(
+                id = 10L,
+                amount = 850.0,
+                timestamp = System.currentTimeMillis(),
+                note = "Lunch",
+                tagId = foodTag.id,
+                type = TransactionType.EXPENSE
+            ),
+            tag = foodTag
+        )
+        every { transactionDao.getAllTransactionsWithTags() } returns flowOf(listOf(sampleTx))
+        every { tagDao.getTagsByType(TransactionType.EXPENSE) } returns flowOf(listOf(foodTag))
+
+        val freshVm = MainViewModel(application)
+        freshVm.askFinanceCoach("Where did most of my money go this month?", typingDelayMs = 100L)
+
+        // Immediately after asking: user message is appended and loading is true
+        Assert.assertTrue(freshVm.coachUiState.value.isLoading)
+        Assert.assertEquals(1, freshVm.coachUiState.value.messages.size)
+
+        advanceUntilIdle()
+
+        val finalState = freshVm.coachUiState.value
+        Assert.assertFalse(finalState.isLoading)
+        Assert.assertNull(finalState.errorMessage)
+        Assert.assertEquals(2, finalState.messages.size)
+        Assert.assertTrue(finalState.messages.last().text.contains("₹850"))
+        Assert.assertTrue(finalState.messages.last().text.contains("Food"))
+    }
 }

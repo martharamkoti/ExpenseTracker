@@ -5,14 +5,26 @@ import android.content.Context
 import android.net.Uri
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.ramkotimartha.expensetracker.ai.CoachMessage
+import com.ramkotimartha.expensetracker.ai.FinanceCoachEngine
+import com.ramkotimartha.expensetracker.ai.MessageRole
 import com.ramkotimartha.expensetracker.ai.ReceiptScanner
 import com.ramkotimartha.expensetracker.ai.ScannedReceiptResult
 import com.ramkotimartha.expensetracker.ai.SmartTagSuggester
 import com.ramkotimartha.expensetracker.ai.TagSuggestion
 import com.ramkotimartha.expensetracker.data.*
+import com.ramkotimartha.expensetracker.utils.CrashlyticsLogger
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import java.time.YearMonth
+
+data class CoachUiState(
+    val messages: List<CoachMessage> = emptyList(),
+    val isLoading: Boolean = false,
+    val errorMessage: String? = null,
+    val lastFailedQuestion: String? = null
+)
 
 class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val repository: ExpenseRepository
@@ -20,6 +32,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     
     private val _selectedMonth = MutableStateFlow(YearMonth.now())
     val selectedMonth: StateFlow<YearMonth> = _selectedMonth.asStateFlow()
+
+    private val _coachUiState = MutableStateFlow(CoachUiState())
+    val coachUiState: StateFlow<CoachUiState> = _coachUiState.asStateFlow()
 
     val allTransactions: StateFlow<List<TransactionWithTag>>
     val incomeTags: StateFlow<List<Tag>>
@@ -126,5 +141,90 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             availableTags = tags,
             pastTransactions = allTransactions.value
         )
+    }
+
+    fun askFinanceCoach(question: String, typingDelayMs: Long = 260L) {
+        val trimmed = question.trim()
+        if (trimmed.isEmpty() || _coachUiState.value.isLoading) return
+
+        val userMessage = CoachMessage(
+            role = MessageRole.USER,
+            text = trimmed
+        )
+
+        _coachUiState.update {
+            it.copy(
+                messages = it.messages + userMessage,
+                isLoading = true,
+                errorMessage = null,
+                lastFailedQuestion = null
+            )
+        }
+
+        viewModelScope.launch {
+            try {
+                if (typingDelayMs > 0L) {
+                    delay(typingDelayMs)
+                }
+                val currentTransactions = allTransactions.value.ifEmpty {
+                    repository.allTransactions.first()
+                }
+                val currentTags = (incomeTags.value + expenseTags.value).ifEmpty {
+                    repository.getTagsByType(TransactionType.INCOME).first() +
+                        repository.getTagsByType(TransactionType.EXPENSE).first()
+                }
+                val reply = FinanceCoachEngine.answerQuestion(
+                    question = trimmed,
+                    transactions = currentTransactions,
+                    availableTags = currentTags,
+                    defaultMonth = _selectedMonth.value
+                )
+                _coachUiState.update {
+                    it.copy(
+                        messages = it.messages + reply,
+                        isLoading = false,
+                        errorMessage = null,
+                        lastFailedQuestion = null
+                    )
+                }
+            } catch (e: Exception) {
+                CrashlyticsLogger.log(e, "Finance Coach failed to answer question")
+                _coachUiState.update {
+                    it.copy(
+                        isLoading = false,
+                        errorMessage = e.message ?: "Unable to analyze expenses right now. Please try again.",
+                        lastFailedQuestion = trimmed
+                    )
+                }
+            }
+        }
+    }
+
+    fun retryLastCoachQuestion(typingDelayMs: Long = 260L) {
+        val lastFailed = _coachUiState.value.lastFailedQuestion ?: return
+        // Remove the trailing failed user bubble before re-submitting cleanly
+        _coachUiState.update { state ->
+            val trimmedMessages = if (state.messages.lastOrNull()?.role == MessageRole.USER &&
+                state.messages.lastOrNull()?.text == lastFailed
+            ) {
+                state.messages.dropLast(1)
+            } else {
+                state.messages
+            }
+            state.copy(
+                messages = trimmedMessages,
+                errorMessage = null,
+                lastFailedQuestion = null
+            )
+        }
+        askFinanceCoach(lastFailed, typingDelayMs)
+    }
+
+    fun clearCoachError() {
+        _coachUiState.update { it.copy(errorMessage = null, lastFailedQuestion = null) }
+    }
+
+    fun clearCoachConversation() {
+        _coachUiState.value = CoachUiState()
     }
 }

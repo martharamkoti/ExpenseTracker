@@ -8,6 +8,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.Menu
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -35,7 +36,8 @@ fun StatsScreen(
     transactions: List<TransactionWithTag>,
     onMenuClick: () -> Unit,
     onPreviousMonth: () -> Unit,
-    onNextMonth: () -> Unit
+    onNextMonth: () -> Unit,
+    onAskCoachClick: (() -> Unit)? = null
 ) {
     val monthTransactions = remember(transactions, selectedMonth) {
         transactions.filter {
@@ -114,7 +116,11 @@ fun StatsScreen(
                     )
                 }
             } else {
-                SummaryInsights(topExpenseName = topExpense?.key?.name, totalExpense = topExpense?.value ?: 0.0)
+                SummaryInsights(
+                    topExpenseName = topExpense?.key?.name,
+                    totalExpense = topExpense?.value ?: 0.0,
+                    onAskCoachClick = onAskCoachClick
+                )
                 
                 ChartSection(title = "Expense Distribution") {
                     PieChart(data = expensesByTag)
@@ -131,14 +137,38 @@ fun StatsScreen(
 }
 
 @Composable
-fun SummaryInsights(topExpenseName: String?, totalExpense: Double) {
+fun SummaryInsights(
+    topExpenseName: String?,
+    totalExpense: Double,
+    onAskCoachClick: (() -> Unit)? = null
+) {
     Card(
         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f))
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
-            Text("Insights", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-            Spacer(modifier = Modifier.height(8.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text("Insights", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                if (onAskCoachClick != null) {
+                    TextButton(
+                        onClick = onAskCoachClick,
+                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 2.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.AutoAwesome,
+                            contentDescription = null,
+                            modifier = Modifier.size(15.dp)
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("Ask Coach", style = MaterialTheme.typography.labelLarge)
+                    }
+                }
+            }
+            Spacer(modifier = Modifier.height(6.dp))
             if (topExpenseName != null) {
                 Text(
                     text = "$topExpenseName was your top expense this month, accounting for ${CurrencyUtils.formatCurrency(totalExpense)} total spending.",
