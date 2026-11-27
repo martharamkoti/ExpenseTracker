@@ -214,6 +214,26 @@
       "event_name": "coach_open_from_stats",
       "trigger": "User taps 'Ask Coach' from the Stats Insights card.",
       "description": "Tracks contextual entry into Finance Coach from Monthly Stats."
+    },
+    {
+      "event_name": "transaction_delete_undo",
+      "trigger": "User taps 'Undo' on the snackbar after deleting a transaction.",
+      "description": "Tracks accidental delete recoveries on HomeScreen."
+    },
+    {
+      "event_name": "tag_reassign_and_delete",
+      "trigger": "User reassigns linked transactions to another tag before deleting a tag.",
+      "description": "Tracks usage of safe tag deletion protection."
+    },
+    {
+      "event_name": "click_open_search",
+      "trigger": "User taps the search icon on the Home screen.",
+      "description": "Opens the global transaction search screen."
+    },
+    {
+      "event_name": "screen_view_search",
+      "trigger": "User views the global Search Transactions screen.",
+      "description": "Logged when the global search screen is visible."
     }
   ]
 }

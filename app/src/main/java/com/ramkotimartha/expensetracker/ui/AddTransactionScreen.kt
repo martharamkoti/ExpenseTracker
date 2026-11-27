@@ -108,7 +108,7 @@ fun AddTransactionScreen(
     availableTags: List<Tag>,
     initialTransaction: TransactionWithTag? = null,
     onSave: (amount: Double, type: TransactionType, tagId: Long, note: String?, timestamp: Long) -> Unit,
-    onAddTag: (name: String, type: TransactionType) -> Unit,
+    onAddTag: (name: String, type: TransactionType, iconKey: String?) -> Unit,
     onClose: () -> Unit,
     onSuggestTag: (note: String, type: TransactionType, availableTags: List<Tag>) -> TagSuggestion? = { _, _, _ -> null },
     onScanReceiptClick: (() -> Unit)? = null
@@ -526,6 +526,9 @@ fun AddTransactionScreen(
                     sortedTags.forEach { tag ->
                         val isSelected = selectedTagId == tag.id
                         val showSparkleOnChip = isSelected && isAutoSelectedActive
+                        val visual = remember(tag.id, tag.name, tag.type, tag.iconKey) {
+                            CategoryVisuals.resolve(tag)
+                        }
                         FilterChip(
                             selected = isSelected,
                             onClick = {
@@ -543,15 +546,18 @@ fun AddTransactionScreen(
                                 autoSuggestedTag = null
                                 attemptedSave = false
                             },
-                            leadingIcon = if (showSparkleOnChip) {
-                                {
-                                    Icon(
-                                        imageVector = Icons.Rounded.AutoAwesome,
-                                        contentDescription = null,
-                                        modifier = Modifier.size(16.dp)
-                                    )
-                                }
-                            } else null,
+                            leadingIcon = {
+                                Icon(
+                                    imageVector = if (showSparkleOnChip) Icons.Rounded.AutoAwesome else visual.icon,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(16.dp),
+                                    tint = when {
+                                        isSelected && selectedType == TransactionType.EXPENSE -> MaterialTheme.colorScheme.onPrimary
+                                        isSelected -> MaterialTheme.colorScheme.onSecondary
+                                        else -> visual.softColor
+                                    }
+                                )
+                            },
                             label = { Text(tag.name) },
                             shape = RoundedCornerShape(12.dp),
                             border = if (isSelected) null else FilterChipDefaults.filterChipBorder(
@@ -630,36 +636,17 @@ fun AddTransactionScreen(
     }
 
     if (showAddTagDialog) {
-        AlertDialog(
-            onDismissRequest = { showAddTagDialog = false },
-            title = { Text("New Tag") },
-            text = {
-                OutlinedTextField(
-                    value = newTagName,
-                    onValueChange = { newTagName = it },
-                    placeholder = { Text("Tag name (e.g. Coffee)") },
-                    singleLine = true,
-                    shape = RoundedCornerShape(12.dp)
-                )
+        CreateTagDialog(
+            transactionType = selectedType,
+            onDismiss = {
+                AnalyticsLogger.logEvent("cancel_add_tag")
+                showAddTagDialog = false
             },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        if (newTagName.isNotBlank()) {
-                            lastAddedTagName = newTagName
-                            onAddTag(newTagName, selectedType)
-                            newTagName = ""
-                            showAddTagDialog = false
-                        }
-                    },
-                    enabled = newTagName.isNotBlank()
-                ) { Text("Add") }
-            },
-            dismissButton = {
-                TextButton(onClick = { 
-                    AnalyticsLogger.logEvent("cancel_add_tag")
-                    showAddTagDialog = false 
-                }) { Text("Cancel") }
+            onConfirm = { name, iconKey ->
+                lastAddedTagName = name
+                onAddTag(name, selectedType, iconKey)
+                newTagName = ""
+                showAddTagDialog = false
             }
         )
     }

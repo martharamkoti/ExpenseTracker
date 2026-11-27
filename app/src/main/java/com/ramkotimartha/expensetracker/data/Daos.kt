@@ -43,4 +43,7 @@ interface TransactionDao {
 
     @Query("SELECT tagId FROM transactions")
     fun getTagsInUse(): Flow<List<Long>>
+
+    @Query("UPDATE transactions SET tagId = :newTagId WHERE tagId = :oldTagId")
+    suspend fun reassignTransactionsTag(oldTagId: Long, newTagId: Long)
 }

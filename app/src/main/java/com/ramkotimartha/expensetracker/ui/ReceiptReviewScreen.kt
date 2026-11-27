@@ -243,7 +243,7 @@ fun ReceiptReviewScreen(
     availableTags: List<Tag>,
     errorMessage: String? = null,
     onSaveExpense: (amount: Double, tagId: Long, note: String?, timestamp: Long) -> Unit,
-    onAddTag: (name: String, type: TransactionType) -> Unit,
+    onAddTag: (name: String, type: TransactionType, iconKey: String?) -> Unit,
     onSuggestTag: (note: String, type: TransactionType, availableTags: List<Tag>) -> TagSuggestion? = { _, _, _ -> null },
     onRescan: () -> Unit,
     onBack: () -> Unit
@@ -652,6 +652,9 @@ fun ReceiptReviewScreen(
                     expenseTags.forEach { tag ->
                         val isSelected = selectedTagId == tag.id
                         val showSparkle = isSelected && isAutoSelectedActive
+                        val visual = remember(tag.id, tag.name, tag.type, tag.iconKey) {
+                            CategoryVisuals.resolve(tag)
+                        }
                         FilterChip(
                             selected = isSelected,
                             onClick = {
@@ -663,15 +666,14 @@ fun ReceiptReviewScreen(
                                 autoSuggestedTag = null
                                 attemptedSave = false
                             },
-                            leadingIcon = if (showSparkle) {
-                                {
-                                    Icon(
-                                        imageVector = Icons.Rounded.AutoAwesome,
-                                        contentDescription = null,
-                                        modifier = Modifier.size(16.dp)
-                                    )
-                                }
-                            } else null,
+                            leadingIcon = {
+                                Icon(
+                                    imageVector = if (showSparkle) Icons.Rounded.AutoAwesome else visual.icon,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(16.dp),
+                                    tint = if (isSelected) MaterialTheme.colorScheme.onPrimary else visual.softColor
+                                )
+                            },
                             label = { Text(tag.name) },
                             shape = RoundedCornerShape(12.dp),
                             border = if (isSelected) null else FilterChipDefaults.filterChipBorder(
@@ -744,33 +746,14 @@ fun ReceiptReviewScreen(
     }
 
     if (showAddTagDialog) {
-        AlertDialog(
-            onDismissRequest = { showAddTagDialog = false },
-            title = { Text("New Tag") },
-            text = {
-                OutlinedTextField(
-                    value = newTagName,
-                    onValueChange = { newTagName = it },
-                    placeholder = { Text("Tag name (e.g. Dining)") },
-                    singleLine = true,
-                    shape = RoundedCornerShape(12.dp)
-                )
-            },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        if (newTagName.isNotBlank()) {
-                            lastAddedTagName = newTagName
-                            onAddTag(newTagName, TransactionType.EXPENSE)
-                            newTagName = ""
-                            showAddTagDialog = false
-                        }
-                    },
-                    enabled = newTagName.isNotBlank()
-                ) { Text("Add") }
-            },
-            dismissButton = {
-                TextButton(onClick = { showAddTagDialog = false }) { Text("Cancel") }
+        CreateTagDialog(
+            transactionType = TransactionType.EXPENSE,
+            onDismiss = { showAddTagDialog = false },
+            onConfirm = { name, iconKey ->
+                lastAddedTagName = name
+                onAddTag(name, TransactionType.EXPENSE, iconKey)
+                newTagName = ""
+                showAddTagDialog = false
             }
         )
     }

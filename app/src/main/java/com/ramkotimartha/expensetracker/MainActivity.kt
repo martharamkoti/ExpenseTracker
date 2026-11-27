@@ -114,6 +114,7 @@ fun MainApp(viewModel: MainViewModel) {
     val scope = rememberCoroutineScope()
     var currentScreen by remember { mutableStateOf<Screen>(Screen.Home) }
     var showAddScreen by rememberSaveable { mutableStateOf(false) }
+    var showSearchScreen by rememberSaveable { mutableStateOf(false) }
     var editingTransaction by remember { mutableStateOf<TransactionWithTag?>(null) }
     var showThemeDialog by remember { mutableStateOf(false) }
 
@@ -130,6 +131,7 @@ fun MainApp(viewModel: MainViewModel) {
     val incomeTags by viewModel.incomeTags.collectAsState()
     val expenseTags by viewModel.expenseTags.collectAsState()
     val tagsInUse by viewModel.tagsInUse.collectAsState()
+    val tagUsageCounts by viewModel.tagUsageCounts.collectAsState()
     val selectedMonth by viewModel.selectedMonth.collectAsState()
     val currentTheme by viewModel.theme.collectAsState()
     val coachUiState by viewModel.coachUiState.collectAsState()
@@ -216,14 +218,15 @@ fun MainApp(viewModel: MainViewModel) {
         editingTransaction = null
     }
 
-    val inModalFlow = showAddScreen || editingTransaction != null || isScanningReceipt || scannedReceiptResult != null
+    val inModalFlow = showAddScreen || showSearchScreen || editingTransaction != null || isScanningReceipt || scannedReceiptResult != null
 
     // Screen View Analytics
-    LaunchedEffect(currentScreen, showAddScreen, editingTransaction, scannedReceiptResult) {
+    LaunchedEffect(currentScreen, showAddScreen, showSearchScreen, editingTransaction, scannedReceiptResult) {
         when {
             scannedReceiptResult != null -> AnalyticsLogger.logScreenView("receipt_review")
             editingTransaction != null -> AnalyticsLogger.logScreenView("edit_transaction")
             showAddScreen -> AnalyticsLogger.logScreenView("add_transaction")
+            showSearchScreen -> AnalyticsLogger.logScreenView("search")
             else -> AnalyticsLogger.logScreenView(currentScreen.route)
         }
     }
@@ -236,6 +239,9 @@ fun MainApp(viewModel: MainViewModel) {
     }
     if (currentScreen == Screen.About) {
         BackHandler { currentScreen = Screen.Home }
+    }
+    if (showSearchScreen) {
+        BackHandler { showSearchScreen = false }
     }
     if (showAddScreen || editingTransaction != null) {
         BackHandler { closeAddEditScreen() }
@@ -307,9 +313,9 @@ fun MainApp(viewModel: MainViewModel) {
                         showAddScreen = false
                         editingTransaction = null
                     },
-                    onAddTag = { name, type ->
+                    onAddTag = { name, type, iconKey ->
                         AnalyticsLogger.logEvent("tag_add_new")
-                        viewModel.addTag(name, type)
+                        viewModel.addTag(name, type, iconKey)
                     },
                     onSuggestTag = { note, type, tags ->
                         viewModel.suggestTag(note, type, tags)
@@ -335,9 +341,9 @@ fun MainApp(viewModel: MainViewModel) {
                         }
                         closeAddEditScreen()
                     },
-                    onAddTag = { name, type ->
+                    onAddTag = { name, type, iconKey ->
                         AnalyticsLogger.logEvent("tag_add_new")
-                        viewModel.addTag(name, type)
+                        viewModel.addTag(name, type, iconKey)
                     },
                     onClose = { closeAddEditScreen() },
                     onSuggestTag = { note, type, tags ->
@@ -346,6 +352,21 @@ fun MainApp(viewModel: MainViewModel) {
                     onScanReceiptClick = {
                         AnalyticsLogger.logEvent("receipt_scan_open")
                         showReceiptSourceSheet = true
+                    }
+                )
+            }
+            showSearchScreen -> {
+                SearchTransactionsScreen(
+                    transactions = transactions,
+                    onBackClick = { showSearchScreen = false },
+                    onEditTransaction = { transaction -> editingTransaction = transaction },
+                    onDeleteTransaction = { transaction ->
+                        AnalyticsLogger.logEvent("transaction_delete")
+                        viewModel.deleteTransaction(transaction.transaction)
+                    },
+                    onRestoreTransaction = { restoredTx ->
+                        AnalyticsLogger.logEvent("transaction_delete_undo")
+                        viewModel.restoreTransaction(restoredTx)
                     }
                 )
             }
@@ -405,6 +426,14 @@ fun MainApp(viewModel: MainViewModel) {
                             onDeleteTransaction = { transaction ->
                                 AnalyticsLogger.logEvent("transaction_delete")
                                 viewModel.deleteTransaction(transaction.transaction)
+                            },
+                            onRestoreTransaction = { restoredTx ->
+                                AnalyticsLogger.logEvent("transaction_delete_undo")
+                                viewModel.restoreTransaction(restoredTx)
+                            },
+                            onSearchClick = {
+                                AnalyticsLogger.logEvent("click_open_search")
+                                showSearchScreen = true
                             }
                         )
                         Screen.Stats -> StatsScreen(
@@ -463,17 +492,22 @@ fun MainApp(viewModel: MainViewModel) {
                         Screen.Tags -> TagManagementScreen(
                             tags = allAvailableTags,
                             tagsInUse = tagsInUse,
+                            tagUsageCounts = tagUsageCounts,
                             onMenuClick = { 
                                 AnalyticsLogger.logEvent("drawer_open")
                                 scope.launch { drawerState.open() } 
                             },
-                            onAddTag = { name, type ->
+                            onAddTag = { name, type, iconKey ->
                                 AnalyticsLogger.logEvent("tag_add_new_from_tags_screen")
-                                viewModel.addTag(name, type)
+                                viewModel.addTag(name, type, iconKey)
                             },
                             onDeleteTag = { tag -> 
                                 AnalyticsLogger.logEvent("tag_delete")
                                 viewModel.deleteTag(tag) 
+                            },
+                            onReassignAndDeleteTag = { tagToDelete, replacementTagId ->
+                                AnalyticsLogger.logEvent("tag_reassign_and_delete")
+                                viewModel.reassignAndDeleteTag(tagToDelete, replacementTagId)
                             }
                         )
                         Screen.About -> AboutScreen(

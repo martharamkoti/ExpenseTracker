@@ -205,25 +205,38 @@ fun ChartSection(title: String, content: @Composable () -> Unit) {
 @Composable
 fun PieChart(data: Map<com.ramkotimartha.expensetracker.data.Tag, Double>) {
     val total = data.values.sum()
-    val colors = listOf(
-        Color(0xFF64B5F6), // Blue
-        Color(0xFF81C784), // Green
-        Color(0xFF9575CD), // Purple
-        Color(0xFFFFD54F), // Yellow
-        Color(0xFFE57373), // Red
-        Color(0xFF4DB6AC), // Teal
-        Color(0xFFFF8A65), // Orange
-        Color(0xFFAED581)  // Light Green
+    val fallbackColors = listOf(
+        Color(0xFF64B5F6),
+        Color(0xFF81C784),
+        Color(0xFF9575CD),
+        Color(0xFFFFD54F),
+        Color(0xFFE57373),
+        Color(0xFF4DB6AC),
+        Color(0xFFFF8A65),
+        Color(0xFFAED581)
     )
+
+    val sortedEntries = remember(data) { data.entries.sortedByDescending { it.value } }
+    val sliceColors = remember(sortedEntries) {
+        val usedColors = mutableSetOf<Color>()
+        sortedEntries.mapIndexed { idx, entry ->
+            val preferred = CategoryVisuals.resolve(entry.key).softColor
+            if (usedColors.add(preferred)) {
+                preferred
+            } else {
+                fallbackColors.firstOrNull { usedColors.add(it) } ?: fallbackColors[idx % fallbackColors.size]
+            }
+        }
+    }
 
     Column(verticalArrangement = Arrangement.spacedBy(24.dp)) {
         Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
             Canvas(modifier = Modifier.size(200.dp)) {
                 var startAngle = -90f
-                data.values.forEachIndexed { index, value ->
-                    val sweepAngle = (value / total).toFloat() * 360f
+                sortedEntries.forEachIndexed { index, entry ->
+                    val sweepAngle = (entry.value / total).toFloat() * 360f
                     drawArc(
-                        color = colors[index % colors.size],
+                        color = sliceColors[index],
                         startAngle = startAngle,
                         sweepAngle = sweepAngle,
                         useCenter = false,
@@ -233,22 +246,34 @@ fun PieChart(data: Map<com.ramkotimartha.expensetracker.data.Tag, Double>) {
                 }
             }
         }
-        
+
         Column(
             modifier = Modifier.fillMaxWidth(),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            data.entries.sortedByDescending { it.value }.forEachIndexed { index, entry ->
+            sortedEntries.forEachIndexed { index, entry ->
                 val percentage = ((entry.value / total) * 100).roundToInt()
+                val visual = remember(entry.key.id, entry.key.name, entry.key.type, entry.key.iconKey) {
+                    CategoryVisuals.resolve(entry.key)
+                }
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Surface(
-                        modifier = Modifier.size(12.dp), 
-                        color = colors[index % colors.size], 
-                        shape = RoundedCornerShape(2.dp)
-                    ) {}
+                        modifier = Modifier.size(28.dp),
+                        color = sliceColors[index].copy(alpha = 0.16f),
+                        shape = RoundedCornerShape(50)
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(
+                                imageVector = visual.icon,
+                                contentDescription = null,
+                                tint = sliceColors[index],
+                                modifier = Modifier.size(15.dp)
+                            )
+                        }
+                    }
                     Spacer(modifier = Modifier.width(12.dp))
                     Text(
                         text = entry.key.name,

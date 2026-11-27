@@ -100,4 +100,25 @@ class DatabaseTest {
         assertEquals(150.0, list[0].transaction.amount, 0.0)
         assertEquals("Revised", list[0].transaction.note)
     }
+
+    @Test
+    fun reassignTransactionsPreservesRecordsBeforeTagDelete() = runBlocking {
+        val oldTagId = tagDao.insertTag(Tag(name = "Dining", type = TransactionType.EXPENSE, iconKey = "food"))
+        val newTagId = tagDao.insertTag(Tag(name = "Food", type = TransactionType.EXPENSE, iconKey = "food"))
+        val oldTag = tagDao.getTagsByType(TransactionType.EXPENSE).first().first { it.id == oldTagId }
+
+        assertEquals("food", oldTag.iconKey)
+
+        transactionDao.insertTransaction(
+            Transaction(amount = 320.0, type = TransactionType.EXPENSE, tagId = oldTagId, note = "Dinner")
+        )
+
+        val repository = ExpenseRepository(transactionDao, tagDao)
+        repository.reassignAndDeleteTag(oldTag, newTagId)
+
+        val remainingTransactions = transactionDao.getAllTransactionsWithTags().first()
+        assertEquals(1, remainingTransactions.size)
+        assertEquals("Food", remainingTransactions[0].tag.name)
+        assertEquals(320.0, remainingTransactions[0].transaction.amount, 0.0)
+    }
 }

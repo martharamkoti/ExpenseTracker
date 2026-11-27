@@ -43,6 +43,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     val incomeTags: StateFlow<List<Tag>>
     val expenseTags: StateFlow<List<Tag>>
     val tagsInUse: StateFlow<Set<Long>>
+    val tagUsageCounts: StateFlow<Map<Long, Int>>
 
     // Expose synchronous StateFlow directly from ThemeManager so Frame 1 uses the exact
     // saved theme without briefly flashing AppTheme.DARK on cold start.
@@ -62,7 +63,14 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         expenseTags = repository.getTagsByType(TransactionType.EXPENSE)
             .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
-        tagsInUse = repository.getTagsInUse()
+        val rawTagsInUse = repository.getTagsInUse()
+            .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+
+        tagUsageCounts = rawTagsInUse
+            .map { ids -> ids.groupingBy { it }.eachCount() }
+            .stateIn(viewModelScope, SharingStarted.Eagerly, emptyMap())
+
+        tagsInUse = rawTagsInUse
             .map { it.toSet() }
             .stateIn(viewModelScope, SharingStarted.Eagerly, emptySet())
     }
@@ -105,15 +113,27 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    fun addTag(name: String, type: TransactionType) {
+    fun restoreTransaction(transaction: Transaction) {
         viewModelScope.launch {
-            repository.insertTag(Tag(name = name, type = type))
+            repository.insertTransaction(transaction)
+        }
+    }
+
+    fun addTag(name: String, type: TransactionType, iconKey: String? = null) {
+        viewModelScope.launch {
+            repository.insertTag(Tag(name = name, type = type, iconKey = iconKey))
         }
     }
 
     fun deleteTag(tag: Tag) {
         viewModelScope.launch {
             repository.deleteTag(tag)
+        }
+    }
+
+    fun reassignAndDeleteTag(tagToDelete: Tag, replacementTagId: Long) {
+        viewModelScope.launch {
+            repository.reassignAndDeleteTag(tagToDelete, replacementTagId)
         }
     }
 

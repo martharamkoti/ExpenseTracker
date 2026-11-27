@@ -19,25 +19,30 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.DeleteOutline
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.rounded.Menu
+import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.ramkotimartha.expensetracker.data.Transaction
 import com.ramkotimartha.expensetracker.data.TransactionType
 import com.ramkotimartha.expensetracker.data.TransactionWithTag
 import com.ramkotimartha.expensetracker.utils.CurrencyUtils
+import kotlinx.coroutines.launch
 import java.time.Instant
 import java.time.LocalDate
 import java.time.YearMonth
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
-import kotlin.math.roundToInt
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
@@ -50,8 +55,13 @@ fun HomeScreen(
     onNextMonth: () -> Unit,
     onEditTransaction: (TransactionWithTag) -> Unit,
     onDeleteTransaction: (TransactionWithTag) -> Unit,
+    onRestoreTransaction: (Transaction) -> Unit = {},
+    onSearchClick: () -> Unit = {},
     isLoading: Boolean = false
 ) {
+    val snackbarHostState = remember { SnackbarHostState() }
+    val coroutineScope = rememberCoroutineScope()
+
     val monthTransactions = remember(transactions, selectedMonth) {
         transactions.filter {
             val date = Instant.ofEpochMilli(it.transaction.timestamp)
@@ -93,7 +103,7 @@ fun HomeScreen(
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.Center,
-                        modifier = Modifier.fillMaxWidth().padding(end = 48.dp) // Offset for the menu icon to center the title
+                        modifier = Modifier.fillMaxWidth()
                     ) {
                         IconButton(onClick = onPreviousMonth) {
                             Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, contentDescription = "Previous Month")
@@ -102,21 +112,32 @@ fun HomeScreen(
                             text = selectedMonth.format(DateTimeFormatter.ofPattern("MMMM yyyy")),
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
-                            modifier = Modifier.padding(horizontal = 8.dp)
+                            modifier = Modifier.padding(horizontal = 4.dp)
                         )
                         IconButton(onClick = onNextMonth, enabled = canGoNext) {
                             Icon(
-                                Icons.AutoMirrored.Filled.KeyboardArrowRight, 
+                                Icons.AutoMirrored.Filled.KeyboardArrowRight,
                                 contentDescription = "Next Month",
                                 tint = if (canGoNext) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.outline
                             )
                         }
                     }
                 },
+                actions = {
+                    IconButton(onClick = onSearchClick) {
+                        Icon(
+                            imageVector = Icons.Rounded.Search,
+                            contentDescription = "Search Transactions"
+                        )
+                    }
+                },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.background
                 )
             )
+        },
+        snackbarHost = {
+            SnackbarHost(hostState = snackbarHostState)
         },
         floatingActionButton = {
             FloatingActionButton(
@@ -144,7 +165,12 @@ fun HomeScreen(
             ) {
                 if (monthTransactions.isNotEmpty()) {
                     item {
-                        SummarySection(income = totalIncome, expense = totalExpense, savings = totalSavings, savingsLabel = savingsLabel)
+                        SummarySection(
+                            income = totalIncome,
+                            expense = totalExpense,
+                            savings = totalSavings,
+                            savingsLabel = savingsLabel
+                        )
                     }
 
                     groupedTransactions.entries.forEachIndexed { index, entry ->
@@ -165,7 +191,10 @@ fun HomeScreen(
                             DateHeader(date, isCurrentMonth = selectedMonth == YearMonth.now())
                         }
 
-                        items(dailyTransactions) { item ->
+                        items(
+                            items = dailyTransactions,
+                            key = { it.transaction.id }
+                        ) { item ->
                             TransactionRow(
                                 item = item,
                                 onClick = {
@@ -199,7 +228,7 @@ fun HomeScreen(
 
     if (showBottomSheet && selectedTransaction != null) {
         ModalBottomSheet(
-            onDismissRequest = { 
+            onDismissRequest = {
                 showBottomSheet = false
                 selectedTransaction = null
             },
@@ -214,9 +243,23 @@ fun HomeScreen(
                     selectedTransaction = null
                 },
                 onDelete = {
-                    onDeleteTransaction(selectedTransaction!!)
+                    val deletedItem = selectedTransaction!!
+                    onDeleteTransaction(deletedItem)
                     showBottomSheet = false
                     selectedTransaction = null
+
+                    coroutineScope.launch {
+                        snackbarHostState.currentSnackbarData?.dismiss()
+                        val result = snackbarHostState.showSnackbar(
+                            message = "${deletedItem.tag.name} (${CurrencyUtils.formatCurrency(deletedItem.transaction.amount)}) deleted",
+                            actionLabel = "Undo",
+                            withDismissAction = true,
+                            duration = SnackbarDuration.Short
+                        )
+                        if (result == SnackbarResult.ActionPerformed) {
+                            onRestoreTransaction(deletedItem.transaction)
+                        }
+                    }
                 }
             )
         }
@@ -233,13 +276,12 @@ fun TransactionDetailsSheet(
         .atZone(ZoneId.systemDefault())
         .toLocalDate()
     val formattedDate = date.format(DateTimeFormatter.ofPattern("MMM dd, yyyy"))
-    
+
     val isExpense = item.transaction.type == TransactionType.EXPENSE
-    // Slightly reduce saturation/intensity for informational view
-    val amountColor = if (isExpense) 
-        MaterialTheme.colorScheme.error.copy(alpha = 0.6f)
-    else 
-        MaterialTheme.colorScheme.primary.copy(alpha = 0.6f)
+    val amountColor = if (isExpense)
+        MaterialTheme.colorScheme.error.copy(alpha = 0.75f)
+    else
+        MaterialTheme.colorScheme.primary.copy(alpha = 0.8f)
 
     Column(
         modifier = Modifier
@@ -249,7 +291,16 @@ fun TransactionDetailsSheet(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(20.dp)
     ) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            CategoryIconBadge(
+                tag = item.tag,
+                containerSize = 52.dp,
+                iconSize = 26.dp
+            )
+            Spacer(modifier = Modifier.height(2.dp))
             Text(
                 text = CurrencyUtils.formatCurrency(item.transaction.amount),
                 style = MaterialTheme.typography.headlineLarge,
@@ -295,7 +346,7 @@ fun TransactionDetailsSheet(
                 Spacer(modifier = Modifier.width(8.dp))
                 Text("Edit")
             }
-            
+
             FilledTonalButton(
                 onClick = onDelete,
                 modifier = Modifier.weight(1f),
@@ -355,25 +406,69 @@ fun SummaryCard(
         shape = MaterialTheme.shapes.medium
     ) {
         Column(
-            modifier = Modifier.padding(12.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 10.dp, vertical = 12.dp),
             verticalArrangement = Arrangement.spacedBy(4.dp),
             horizontalAlignment = Alignment.Start
         ) {
             Text(
-                label, 
-                style = MaterialTheme.typography.labelSmall, 
+                text = label,
+                style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 1
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
             )
-            Text(
+            AutoResizingCurrencyText(
                 text = CurrencyUtils.formatCurrency(amount),
-                style = MaterialTheme.typography.titleSmall.copy(fontSize = 16.sp),
-                fontWeight = FontWeight.Bold,
                 color = color,
-                maxLines = 1
+                baseStyle = MaterialTheme.typography.titleSmall,
+                maxFontSize = 16.sp,
+                minFontSize = 10.sp,
+                modifier = Modifier.fillMaxWidth()
             )
         }
     }
+}
+
+@Composable
+private fun AutoResizingCurrencyText(
+    text: String,
+    color: Color,
+    baseStyle: TextStyle,
+    maxFontSize: TextUnit = 16.sp,
+    minFontSize: TextUnit = 10.sp,
+    modifier: Modifier = Modifier
+) {
+    var fontSize by remember(text) { mutableStateOf(maxFontSize) }
+    var readyToDraw by remember(text) { mutableStateOf(false) }
+
+    Text(
+        text = text,
+        style = baseStyle.copy(fontSize = fontSize),
+        fontWeight = FontWeight.Bold,
+        color = color,
+        maxLines = 1,
+        softWrap = false,
+        overflow = TextOverflow.Ellipsis,
+        modifier = modifier.drawWithContent {
+            if (readyToDraw) {
+                drawContent()
+            }
+        },
+        onTextLayout = { layoutResult ->
+            if (layoutResult.didOverflowWidth && fontSize.value > minFontSize.value) {
+                val nextValue = (fontSize.value * 0.90f).coerceAtLeast(minFontSize.value)
+                if (nextValue < fontSize.value) {
+                    fontSize = nextValue.sp
+                } else {
+                    readyToDraw = true
+                }
+            } else {
+                readyToDraw = true
+            }
+        }
+    )
 }
 
 @Composable
@@ -414,11 +509,18 @@ fun TransactionRow(
         modifier = Modifier
             .padding(horizontal = 8.dp)
             .clickable { onClick() },
+        leadingContent = {
+            CategoryIconBadge(
+                tag = item.tag,
+                containerSize = 40.dp,
+                iconSize = 20.dp
+            )
+        },
         headlineContent = {
             Text(item.tag.name, fontWeight = FontWeight.SemiBold)
         },
         supportingContent = {
-            item.transaction.note?.let { 
+            item.transaction.note?.let {
                 if (it.isNotBlank()) {
                     Text(
                         text = it,
@@ -459,7 +561,6 @@ private fun HomeLoadingSkeleton(modifier: Modifier = Modifier) {
         modifier = modifier.padding(horizontal = 16.dp, vertical = 8.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        // Summary cards placeholder
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -477,7 +578,6 @@ private fun HomeLoadingSkeleton(modifier: Modifier = Modifier) {
 
         Spacer(modifier = Modifier.height(4.dp))
 
-        // Date header + transaction row placeholders
         Box(
             modifier = Modifier
                 .padding(horizontal = 8.dp)
@@ -493,9 +593,18 @@ private fun HomeLoadingSkeleton(modifier: Modifier = Modifier) {
                     .fillMaxWidth()
                     .padding(horizontal = 8.dp, vertical = 6.dp),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Box(
+                    modifier = Modifier
+                        .size(40.dp)
+                        .clip(RoundedCornerShape(50))
+                        .background(placeholderColor)
+                )
+                Column(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
                     Box(
                         modifier = Modifier
                             .width(120.dp)

@@ -27,4 +27,9 @@ class ExpenseRepository(
     suspend fun deleteTag(tag: Tag) {
         tagDao.deleteTag(tag)
     }
+
+    suspend fun reassignAndDeleteTag(tagToDelete: Tag, replacementTagId: Long) {
+        transactionDao.reassignTransactionsTag(oldTagId = tagToDelete.id, newTagId = replacementTagId)
+        tagDao.deleteTag(tagToDelete)
+    }
 }
