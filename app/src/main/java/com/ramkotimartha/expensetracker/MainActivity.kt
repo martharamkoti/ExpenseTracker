@@ -2,10 +2,12 @@ package com.ramkotimartha.expensetracker
 
 import android.Manifest
 import android.content.pm.PackageManager
+import android.content.res.Configuration
 import android.net.Uri
 import android.os.Bundle
 import android.widget.Toast
 import androidx.activity.ComponentActivity
+import androidx.activity.SystemBarStyle
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
@@ -17,6 +19,8 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.consumeWindowInsets
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -37,6 +41,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
+import androidx.core.graphics.drawable.toDrawable
 import com.google.firebase.crashlytics.FirebaseCrashlytics
 import com.ramkotimartha.expensetracker.ai.ExtractedReceiptData
 import com.ramkotimartha.expensetracker.ai.ReceiptScanner
@@ -50,14 +55,38 @@ import com.ramkotimartha.expensetracker.ui.theme.ExpenseTrackerTheme
 import com.ramkotimartha.expensetracker.utils.AnalyticsLogger
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
+import java.time.YearMonth
 
 class MainActivity : ComponentActivity() {
     private val viewModel: MainViewModel by viewModels()
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        val initialTheme = ThemeManager(this).currentTheme
         ThemeManager.applyInitialNightMode(this)
         super.onCreate(savedInstanceState)
-        enableEdgeToEdge()
+
+        val isInitialDark = when (initialTheme) {
+            AppTheme.DARK -> true
+            AppTheme.LIGHT -> false
+            AppTheme.SYSTEM ->
+                (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) ==
+                    Configuration.UI_MODE_NIGHT_YES
+        }
+        val initialBgColor = if (isInitialDark) 0xFF141218.toInt() else 0xFFFEF7FF.toInt()
+        window.setBackgroundDrawable(initialBgColor.toDrawable())
+        enableEdgeToEdge(
+            statusBarStyle = if (isInitialDark) {
+                SystemBarStyle.dark(initialBgColor)
+            } else {
+                SystemBarStyle.light(initialBgColor, initialBgColor)
+            },
+            navigationBarStyle = if (isInitialDark) {
+                SystemBarStyle.dark(initialBgColor)
+            } else {
+                SystemBarStyle.light(initialBgColor, initialBgColor)
+            }
+        )
+
         FirebaseCrashlytics.getInstance()
             .setCrashlyticsCollectionEnabled(true)
         setContent {
@@ -97,6 +126,7 @@ fun MainApp(viewModel: MainViewModel) {
     var activeScanJob by remember { mutableStateOf<Job?>(null) }
 
     val transactions by viewModel.allTransactions.collectAsState()
+    val isTransactionsLoading by viewModel.isTransactionsLoading.collectAsState()
     val incomeTags by viewModel.incomeTags.collectAsState()
     val expenseTags by viewModel.expenseTags.collectAsState()
     val tagsInUse by viewModel.tagsInUse.collectAsState()
@@ -344,11 +374,17 @@ fun MainApp(viewModel: MainViewModel) {
                     }
                 }
             ) { innerPadding ->
-                Surface(modifier = Modifier.padding(innerPadding)) {
+                Surface(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(innerPadding)
+                        .consumeWindowInsets(innerPadding)
+                ) {
                     when (currentScreen) {
                         Screen.Home -> HomeScreen(
                             selectedMonth = selectedMonth,
                             transactions = transactions,
+                            isLoading = isTransactionsLoading,
                             onMenuClick = { 
                                 AnalyticsLogger.logEvent("drawer_open")
                                 scope.launch { drawerState.open() } 
@@ -374,6 +410,7 @@ fun MainApp(viewModel: MainViewModel) {
                         Screen.Stats -> StatsScreen(
                             selectedMonth = selectedMonth,
                             transactions = transactions,
+                            isLoading = isTransactionsLoading,
                             onMenuClick = { 
                                 AnalyticsLogger.logEvent("drawer_open")
                                 scope.launch { drawerState.open() } 
@@ -392,8 +429,9 @@ fun MainApp(viewModel: MainViewModel) {
                             }
                         )
                         Screen.Coach -> FinanceCoachScreen(
-                            selectedMonth = selectedMonth,
+                            selectedMonth = YearMonth.now(),
                             transactions = transactions,
+                            isTransactionsLoading = isTransactionsLoading,
                             uiState = coachUiState,
                             onMenuClick = {
                                 AnalyticsLogger.logEvent("drawer_open")

@@ -36,30 +36,35 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _coachUiState = MutableStateFlow(CoachUiState())
     val coachUiState: StateFlow<CoachUiState> = _coachUiState.asStateFlow()
 
+    private val _isTransactionsLoading = MutableStateFlow(true)
+    val isTransactionsLoading: StateFlow<Boolean> = _isTransactionsLoading.asStateFlow()
+
     val allTransactions: StateFlow<List<TransactionWithTag>>
     val incomeTags: StateFlow<List<Tag>>
     val expenseTags: StateFlow<List<Tag>>
     val tagsInUse: StateFlow<Set<Long>>
 
+    // Expose synchronous StateFlow directly from ThemeManager so Frame 1 uses the exact
+    // saved theme without briefly flashing AppTheme.DARK on cold start.
     val theme: StateFlow<AppTheme> = themeManager.theme
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), AppTheme.DARK)
 
     init {
         val database = AppDatabase.getDatabase(application)
         repository = ExpenseRepository(database.transactionDao(), database.tagDao())
 
         allTransactions = repository.allTransactions
-            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+            .onEach { _isTransactionsLoading.value = false }
+            .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
         incomeTags = repository.getTagsByType(TransactionType.INCOME)
-            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+            .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
         expenseTags = repository.getTagsByType(TransactionType.EXPENSE)
-            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+            .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
         tagsInUse = repository.getTagsInUse()
             .map { it.toSet() }
-            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptySet())
+            .stateIn(viewModelScope, SharingStarted.Eagerly, emptySet())
     }
 
     fun selectMonth(month: YearMonth) {
@@ -177,7 +182,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     question = trimmed,
                     transactions = currentTransactions,
                     availableTags = currentTags,
-                    defaultMonth = _selectedMonth.value
+                    defaultMonth = YearMonth.now()
                 )
                 _coachUiState.update {
                     it.copy(

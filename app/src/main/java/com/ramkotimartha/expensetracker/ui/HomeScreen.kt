@@ -1,5 +1,10 @@
 package com.ramkotimartha.expensetracker.ui
 
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -18,6 +23,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -43,7 +49,8 @@ fun HomeScreen(
     onPreviousMonth: () -> Unit,
     onNextMonth: () -> Unit,
     onEditTransaction: (TransactionWithTag) -> Unit,
-    onDeleteTransaction: (TransactionWithTag) -> Unit
+    onDeleteTransaction: (TransactionWithTag) -> Unit,
+    isLoading: Boolean = false
 ) {
     val monthTransactions = remember(transactions, selectedMonth) {
         transactions.filter {
@@ -122,60 +129,68 @@ fun HomeScreen(
             }
         }
     ) { padding ->
-        LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding),
-            contentPadding = PaddingValues(bottom = 80.dp)
-        ) {
-            if (monthTransactions.isNotEmpty()) {
-                item {
-                    SummarySection(income = totalIncome, expense = totalExpense, savings = totalSavings, savingsLabel = savingsLabel)
-                }
+        if (isLoading) {
+            HomeLoadingSkeleton(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(padding)
+            )
+        } else {
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(padding),
+                contentPadding = PaddingValues(bottom = 88.dp)
+            ) {
+                if (monthTransactions.isNotEmpty()) {
+                    item {
+                        SummarySection(income = totalIncome, expense = totalExpense, savings = totalSavings, savingsLabel = savingsLabel)
+                    }
 
-                groupedTransactions.entries.forEachIndexed { index, entry ->
-                    val date = entry.key
-                    val dailyTransactions = entry.value
+                    groupedTransactions.entries.forEachIndexed { index, entry ->
+                        val date = entry.key
+                        val dailyTransactions = entry.value
 
-                    if (index > 0) {
-                        item {
-                            HorizontalDivider(
-                                modifier = Modifier.padding(horizontal = 24.dp, vertical = 4.dp),
-                                thickness = 0.5.dp,
-                                color = MaterialTheme.colorScheme.outlineVariant
+                        if (index > 0) {
+                            item {
+                                HorizontalDivider(
+                                    modifier = Modifier.padding(horizontal = 24.dp, vertical = 4.dp),
+                                    thickness = 0.5.dp,
+                                    color = MaterialTheme.colorScheme.outlineVariant
+                                )
+                            }
+                        }
+
+                        stickyHeader {
+                            DateHeader(date, isCurrentMonth = selectedMonth == YearMonth.now())
+                        }
+
+                        items(dailyTransactions) { item ->
+                            TransactionRow(
+                                item = item,
+                                onClick = {
+                                    selectedTransaction = item
+                                    showBottomSheet = true
+                                }
                             )
                         }
                     }
-
-                    stickyHeader {
-                        DateHeader(date, isCurrentMonth = selectedMonth == YearMonth.now())
-                    }
-
-                    items(dailyTransactions) { item ->
-                        TransactionRow(
-                            item = item,
-                            onClick = {
-                                selectedTransaction = item
-                                showBottomSheet = true
-                            }
-                        )
-                    }
-                }
-            } else {
-                item {
-                    val monthName = selectedMonth.format(DateTimeFormatter.ofPattern("MMMM yyyy"))
-                    Box(
-                        modifier = Modifier
-                            .fillParentMaxSize()
-                            .padding(bottom = 100.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            "No transactions in $monthName",
-                            style = MaterialTheme.typography.bodyLarge,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
+                } else {
+                    item {
+                        val monthName = selectedMonth.format(DateTimeFormatter.ofPattern("MMMM yyyy"))
+                        Box(
+                            modifier = Modifier
+                                .fillParentMaxSize()
+                                .padding(bottom = 100.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                "No transactions in $monthName",
+                                style = MaterialTheme.typography.bodyLarge,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                        }
                     }
                 }
             }
@@ -424,4 +439,86 @@ fun TransactionRow(
         },
         colors = ListItemDefaults.colors(containerColor = Color.Transparent)
     )
+}
+
+@Composable
+private fun HomeLoadingSkeleton(modifier: Modifier = Modifier) {
+    val transition = rememberInfiniteTransition(label = "skeleton_pulse")
+    val alpha by transition.animateFloat(
+        initialValue = 0.22f,
+        targetValue = 0.48f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 750),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "skeleton_alpha"
+    )
+    val placeholderColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = alpha)
+
+    Column(
+        modifier = modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        // Summary cards placeholder
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            repeat(3) {
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(64.dp)
+                        .clip(MaterialTheme.shapes.medium)
+                        .background(placeholderColor)
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(4.dp))
+
+        // Date header + transaction row placeholders
+        Box(
+            modifier = Modifier
+                .padding(horizontal = 8.dp)
+                .width(96.dp)
+                .height(12.dp)
+                .clip(RoundedCornerShape(4.dp))
+                .background(placeholderColor)
+        )
+
+        repeat(5) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 8.dp, vertical = 6.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Box(
+                        modifier = Modifier
+                            .width(120.dp)
+                            .height(16.dp)
+                            .clip(RoundedCornerShape(4.dp))
+                            .background(placeholderColor)
+                    )
+                    Box(
+                        modifier = Modifier
+                            .width(180.dp)
+                            .height(12.dp)
+                            .clip(RoundedCornerShape(4.dp))
+                            .background(placeholderColor)
+                    )
+                }
+                Box(
+                    modifier = Modifier
+                        .width(68.dp)
+                        .height(16.dp)
+                        .clip(RoundedCornerShape(4.dp))
+                        .background(placeholderColor)
+                )
+            }
+        }
+    }
 }

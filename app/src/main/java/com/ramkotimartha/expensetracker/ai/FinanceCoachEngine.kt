@@ -96,6 +96,11 @@ object FinanceCoachEngine {
         "one" to 1, "two" to 2, "three" to 3, "four" to 4, "five" to 5
     )
 
+    internal data class MonthScope(
+        val targetMonth: YearMonth,
+        val comparisonMonth: YearMonth
+    )
+
     fun answerQuestion(
         question: String,
         transactions: List<TransactionWithTag>,
@@ -116,13 +121,14 @@ object FinanceCoachEngine {
         }
 
         val normalizedQ = SmartTagSuggester.normalizeText(trimmed)
-        val targetMonth = resolveTargetMonth(normalizedQ, defaultMonth, today)
+        val monthScope = resolveMonthScope(normalizedQ, defaultMonth, today)
         val snapshot = FinancialSummaryEngine.buildSnapshot(
             transactions = transactions,
             availableTags = availableTags,
-            targetMonth = targetMonth,
+            targetMonth = monthScope.targetMonth,
             today = today,
-            zoneId = zoneId
+            zoneId = zoneId,
+            comparisonMonth = monthScope.comparisonMonth
         )
 
         val targetTag = detectTargetCategory(normalizedQ, availableTags, transactions)
@@ -192,41 +198,92 @@ object FinanceCoachEngine {
         return CoachIntent.MONTHLY_OVERVIEW
     }
 
-    private fun resolveTargetMonth(
+    /**
+     * Resolves both the primary [MonthScope.targetMonth] and [MonthScope.comparisonMonth]
+     * from natural-language queries such as:
+     * - "compare groceries spend for this month and last month" -> Nov vs Oct
+     * - "how much did I spend on food compared to last month" -> Nov vs Oct
+     * - "compare groceries spend for Oct 2026 and Nov 2026" -> Nov vs Oct
+     * - "compare groceries spend for Nov 2026 and Sep 2026" -> Nov vs Sep
+     * - "where did my money go last month" -> Oct vs Sep
+     */
+    internal fun resolveMonthScope(
         normalizedQuery: String,
         defaultMonth: YearMonth,
         today: LocalDate
-    ): YearMonth {
+    ): MonthScope {
         val currentMonth = YearMonth.from(today)
+        val previousCalendarMonth = currentMonth.minusMonths(1)
 
-        // Strip comparative clauses like "compared to last month" / "vs last month" / "than last month"
-        // so the primary subject month remains this month!
-        val strippedComparatives = normalizedQuery.replace(
-            Regex("\\b(compared to|compare with|compared with|vs|versus|than|from|against|over)\\s+(last|previous|prior)\\s+month\\b"),
-            ""
+        data class Mention(val position: Int, val month: YearMonth, val isComparativeTargetOnly: Boolean = false)
+        val mentions = mutableListOf<Mention>()
+
+        // 1. Detect "this month" / "current month"
+        for (m in Regex("\\b(this|current)\\s+month\\b").findAll(normalizedQuery)) {
+            mentions.add(Mention(m.range.first, currentMonth))
+        }
+
+        // 2. Detect "last month" / "previous month" / "prior month"
+        val comparativePrefixRegex = Regex(
+            "(?:compared\\s+to|compare\\s+with|compared\\s+with|vs|versus|than|from|against|over)\\s+$"
         )
-
-        if (Regex("\\b(last month|previous month|prior month)\\b").containsMatchIn(strippedComparatives)) {
-            return currentMonth.minusMonths(1)
-        }
-        if (Regex("\\b(this month|current month)\\b").containsMatchIn(strippedComparatives)) {
-            return currentMonth
+        for (m in Regex("\\b(last|previous|prior)\\s+month\\b").findAll(normalizedQuery)) {
+            val prefix = normalizedQuery.substring(0, m.range.first)
+            val isCompOnly = comparativePrefixRegex.containsMatchIn(prefix)
+            mentions.add(Mention(m.range.first, previousCalendarMonth, isComparativeTargetOnly = isCompOnly))
         }
 
-        // Check explicit month names (e.g., "in october" or "october 2026")
-        val words = strippedComparatives.split(" ")
+        // 3. Detect explicit month names (e.g. "nov 2026", "october 2026", "oct")
+        val words = normalizedQuery.split(" ")
+        var charCursor = 0
         for (i in words.indices) {
-            val matchedMonth = MONTH_NAMES[words[i]] ?: continue
+            val word = words[i]
+            val pos = charCursor
+            charCursor += word.length + 1
+
+            val matchedMonth = MONTH_NAMES[word] ?: continue
             val explicitYear = words.getOrNull(i + 1)?.toIntOrNull()?.takeIf { it in 2000..2100 }
             val resolvedYear = explicitYear ?: if (matchedMonth.value > today.monthValue) {
                 today.year - 1
             } else {
                 today.year
             }
-            return YearMonth.of(resolvedYear, matchedMonth)
+            mentions.add(Mention(pos, YearMonth.of(resolvedYear, matchedMonth)))
         }
 
-        return defaultMonth
+        val orderedDistinctMonths = mentions
+            .sortedBy { it.position }
+            .map { it.month }
+            .distinct()
+
+        // When two (or more) distinct months are mentioned (e.g. "this month and last month",
+        // "last month and this month", "Nov 2026 and Sep 2026"), always compare the newer month
+        // against the older month!
+        if (orderedDistinctMonths.size >= 2) {
+            val first = orderedDistinctMonths[0]
+            val second = orderedDistinctMonths[1]
+            val newer = if (first >= second) first else second
+            val older = if (first >= second) second else first
+            return MonthScope(targetMonth = newer, comparisonMonth = older)
+        }
+
+        if (orderedDistinctMonths.size == 1) {
+            val singleMention = mentions.first()
+            // e.g. "how much did I spend on food compared to last month?" -> primary is currentMonth, compared to last month
+            return if (singleMention.isComparativeTargetOnly && singleMention.month == previousCalendarMonth) {
+                MonthScope(targetMonth = currentMonth, comparisonMonth = previousCalendarMonth)
+            } else {
+                MonthScope(
+                    targetMonth = singleMention.month,
+                    comparisonMonth = singleMention.month.minusMonths(1)
+                )
+            }
+        }
+
+        return MonthScope(
+            targetMonth = defaultMonth,
+            comparisonMonth = defaultMonth.minusMonths(1)
+        )
     }
 
     private fun detectTargetCategory(
@@ -413,8 +470,10 @@ object FinanceCoachEngine {
 
         val sharePct = cat?.percentageOfTotal?.roundToInt() ?: 0
         val deltaAmt = currentAmt - prevAmt
+        val isImmediatelyPriorMonth = snapshot.previousMonth == snapshot.targetMonth.minusMonths(1)
+        val comparisonPeriodPhrase = if (isImmediatelyPriorMonth) "last month ($prevLabel)" else prevLabel
         val comparisonText = when {
-            prevAmt == 0.0 -> "You had ${CurrencyUtils.formatCurrency(0.0)} recorded for ${targetTag.name} in $prevLabel, so all ${CurrencyUtils.formatCurrency(currentAmt)} is new compared to last month."
+            prevAmt == 0.0 -> "You had ${CurrencyUtils.formatCurrency(0.0)} recorded for ${targetTag.name} in $prevLabel, so all ${CurrencyUtils.formatCurrency(currentAmt)} is new compared to $comparisonPeriodPhrase."
             currentAmt == 0.0 -> "That's down 100% (${CurrencyUtils.formatCurrency(prevAmt)} saved) compared to ${CurrencyUtils.formatCurrency(prevAmt)} across $prevCount ${pluralize(prevCount, "transaction")} in $prevLabel."
             abs(deltaAmt) < 1.0 -> "That matches your $prevLabel spend of ${CurrencyUtils.formatCurrency(prevAmt)} almost identically."
             deltaAmt > 0 -> {

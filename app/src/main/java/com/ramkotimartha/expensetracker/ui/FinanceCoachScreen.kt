@@ -58,7 +58,8 @@ fun FinanceCoachScreen(
     onRetry: () -> Unit,
     onDismissError: () -> Unit,
     onClearChat: () -> Unit,
-    onAddTransactionClick: () -> Unit
+    onAddTransactionClick: () -> Unit,
+    isTransactionsLoading: Boolean = false
 ) {
     var inputText by remember { mutableStateOf("") }
     val listState = rememberLazyListState()
@@ -153,7 +154,16 @@ fun FinanceCoachScreen(
             )
         }
     ) { padding ->
-        if (transactions.isEmpty()) {
+        if (isTransactionsLoading) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(padding),
+                contentAlignment = Alignment.Center
+            ) {
+                CircularProgressIndicator(modifier = Modifier.size(32.dp), strokeWidth = 3.dp)
+            }
+        } else if (transactions.isEmpty()) {
             // Empty state when user has no recorded transactions
             CoachEmptyTransactionsState(
                 modifier = Modifier
@@ -166,6 +176,7 @@ fun FinanceCoachScreen(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(padding)
+                    .imePadding()
             ) {
                 LazyColumn(
                     state = listState,
@@ -231,12 +242,14 @@ fun FinanceCoachScreen(
                     }
                 }
 
-                // Question Input Bar
+                // Question Input Bar (flush with bottom NavigationBar)
+                HorizontalDivider(
+                    thickness = 0.5.dp,
+                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f)
+                )
                 Surface(
                     modifier = Modifier.fillMaxWidth(),
-                    tonalElevation = 2.dp,
-                    shadowElevation = 6.dp,
-                    color = MaterialTheme.colorScheme.surface
+                    color = MaterialTheme.colorScheme.background
                 ) {
                     Row(
                         modifier = Modifier

@@ -72,9 +72,10 @@ object FinancialSummaryEngine {
         availableTags: List<Tag>,
         targetMonth: YearMonth = YearMonth.now(),
         today: LocalDate = LocalDate.now(),
-        zoneId: ZoneId = ZoneId.systemDefault()
+        zoneId: ZoneId = ZoneId.systemDefault(),
+        comparisonMonth: YearMonth = targetMonth.minusMonths(1)
     ): FinancialSnapshot {
-        val previousMonth = targetMonth.minusMonths(1)
+        val previousMonth = comparisonMonth
 
         val datedTransactions = transactions.map { item ->
             val localDate = Instant.ofEpochMilli(item.transaction.timestamp)

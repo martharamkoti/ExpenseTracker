@@ -6,6 +6,8 @@ import com.ramkotimartha.expensetracker.data.*
 import io.mockk.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.*
 import org.junit.*
@@ -154,5 +156,20 @@ class MainViewModelTest {
         Assert.assertEquals(2, finalState.messages.size)
         Assert.assertTrue(finalState.messages.last().text.contains("₹850"))
         Assert.assertTrue(finalState.messages.last().text.contains("Food"))
+    }
+
+    @Test
+    fun `isTransactionsLoading stays true while DB query is pending and becomes false on emission`() = runTest {
+        every { transactionDao.getAllTransactionsWithTags() } returns flow {
+            delay(50)
+            emit(emptyList())
+        }
+
+        val loadingVm = MainViewModel(application)
+        runCurrent()
+        Assert.assertTrue(loadingVm.isTransactionsLoading.value)
+
+        advanceUntilIdle()
+        Assert.assertFalse(loadingVm.isTransactionsLoading.value)
     }
 }

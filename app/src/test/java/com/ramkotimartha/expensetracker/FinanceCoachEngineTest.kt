@@ -5,6 +5,7 @@ import com.ramkotimartha.expensetracker.data.Tag
 import com.ramkotimartha.expensetracker.data.Transaction
 import com.ramkotimartha.expensetracker.data.TransactionType
 import com.ramkotimartha.expensetracker.data.TransactionWithTag
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.time.LocalDate
@@ -151,5 +152,61 @@ class FinanceCoachEngineTest {
         )
 
         assertTrue(reply.text.contains("haven't recorded any transactions yet"))
+    }
+
+    @Test
+    fun `compares this month and last month as Nov vs Oct rather than Oct vs Sep`() {
+        val groceriesTag = Tag(id = 5L, name = "Groceries", type = TransactionType.EXPENSE)
+        val extendedTags = tags + groceriesTag
+        val txs = sampleTransactions + listOf(
+            // Oct 2026 Groceries = 2,600; Nov 2026 Groceries = 3,900; Sep 2026 Groceries = 0
+            tx(20, 2600.0, groceriesTag, LocalDate.of(2026, 10, 14), "big basket order"),
+            tx(21, 3900.0, groceriesTag, LocalDate.of(2026, 11, 10), "Blinkit")
+        )
+
+        val reply = FinanceCoachEngine.answerQuestion(
+            question = "compare groceries spend for this month and last month",
+            transactions = txs,
+            availableTags = extendedTags,
+            defaultMonth = nov2026,
+            today = fixedToday,
+            zoneId = zone
+        )
+
+        val full = reply.fullText
+        assertTrue("Should report November 2026 as primary month", full.contains("November 2026"))
+        assertTrue("Should compare against October 2026", full.contains("October 2026"))
+        assertFalse("Should NOT shift comparison back to September 2026", full.contains("September 2026"))
+        assertTrue(full.contains("₹3,900"))
+        assertTrue(full.contains("₹2,600"))
+    }
+
+    @Test
+    fun `supports reversed order and arbitrary two-month explicit comparisons`() {
+        // Reversed order: "last month and this month" still compares Nov 2026 vs Oct 2026
+        val replyReversed = FinanceCoachEngine.answerQuestion(
+            question = "compare shopping spend between last month and this month",
+            transactions = sampleTransactions,
+            availableTags = tags,
+            defaultMonth = nov2026,
+            today = fixedToday,
+            zoneId = zone
+        )
+        assertTrue(replyReversed.fullText.contains("November 2026"))
+        assertTrue(replyReversed.fullText.contains("October 2026"))
+
+        // Non-adjacent explicit months: Nov 2026 (3,600) vs Sep 2026 (1,200)
+        val replyNonAdjacent = FinanceCoachEngine.answerQuestion(
+            question = "compare shopping spend for Sep 2026 and Nov 2026",
+            transactions = sampleTransactions,
+            availableTags = tags,
+            defaultMonth = nov2026,
+            today = fixedToday,
+            zoneId = zone
+        )
+        assertTrue(replyNonAdjacent.fullText.contains("November 2026"))
+        assertTrue(replyNonAdjacent.fullText.contains("September 2026"))
+        assertTrue(replyNonAdjacent.fullText.contains("₹3,600"))
+        assertTrue(replyNonAdjacent.fullText.contains("₹1,200"))
     }
 }

@@ -37,7 +37,8 @@ fun StatsScreen(
     onMenuClick: () -> Unit,
     onPreviousMonth: () -> Unit,
     onNextMonth: () -> Unit,
-    onAskCoachClick: (() -> Unit)? = null
+    onAskCoachClick: (() -> Unit)? = null,
+    isLoading: Boolean = false
 ) {
     val monthTransactions = remember(transactions, selectedMonth) {
         transactions.filter {
@@ -99,38 +100,49 @@ fun StatsScreen(
             )
         }
     ) { padding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-                .verticalScroll(rememberScrollState())
-        ) {
-            if (monthTransactions.isEmpty()) {
-                val monthName = selectedMonth.format(DateTimeFormatter.ofPattern("MMMM yyyy"))
-                Box(modifier = Modifier.fillMaxSize().padding(top = 100.dp), contentAlignment = Alignment.Center) {
-                    Text(
-                        "No data for $monthName", 
-                        style = MaterialTheme.typography.bodyLarge,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface
+        if (isLoading) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(padding),
+                contentAlignment = Alignment.Center
+            ) {
+                CircularProgressIndicator(modifier = Modifier.size(32.dp), strokeWidth = 3.dp)
+            }
+        } else {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(padding)
+                    .verticalScroll(rememberScrollState())
+            ) {
+                if (monthTransactions.isEmpty()) {
+                    val monthName = selectedMonth.format(DateTimeFormatter.ofPattern("MMMM yyyy"))
+                    Box(modifier = Modifier.fillMaxSize().padding(top = 100.dp), contentAlignment = Alignment.Center) {
+                        Text(
+                            "No data for $monthName", 
+                            style = MaterialTheme.typography.bodyLarge,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                    }
+                } else {
+                    SummaryInsights(
+                        topExpenseName = topExpense?.key?.name,
+                        totalExpense = topExpense?.value ?: 0.0,
+                        onAskCoachClick = onAskCoachClick
                     )
-                }
-            } else {
-                SummaryInsights(
-                    topExpenseName = topExpense?.key?.name,
-                    totalExpense = topExpense?.value ?: 0.0,
-                    onAskCoachClick = onAskCoachClick
-                )
-                
-                ChartSection(title = "Expense Distribution") {
-                    PieChart(data = expensesByTag)
-                }
+                    
+                    ChartSection(title = "Expense Distribution") {
+                        PieChart(data = expensesByTag)
+                    }
 
-                ChartSection(title = "Income vs Expense") {
-                    IncomeExpenseBarChart(income = totalIncome, expense = totalExpense)
+                    ChartSection(title = "Income vs Expense") {
+                        IncomeExpenseBarChart(income = totalIncome, expense = totalExpense)
+                    }
+                    
+                    Spacer(modifier = Modifier.height(32.dp))
                 }
-                
-                Spacer(modifier = Modifier.height(32.dp))
             }
         }
     }
