@@ -11,6 +11,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
@@ -18,6 +19,8 @@ import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.DeleteOutline
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.rounded.AccountBalanceWallet
+import androidx.compose.material.icons.rounded.DocumentScanner
 import androidx.compose.material.icons.rounded.Menu
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material3.*
@@ -29,6 +32,7 @@ import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
@@ -57,6 +61,7 @@ fun HomeScreen(
     onDeleteTransaction: (TransactionWithTag) -> Unit,
     onRestoreTransaction: (Transaction) -> Unit = {},
     onSearchClick: () -> Unit = {},
+    onScanReceiptClick: (() -> Unit)? = null,
     isLoading: Boolean = false
 ) {
     val snackbarHostState = remember { SnackbarHostState() }
@@ -163,16 +168,17 @@ fun HomeScreen(
                     .padding(padding),
                 contentPadding = PaddingValues(bottom = 88.dp)
             ) {
-                if (monthTransactions.isNotEmpty()) {
-                    item {
-                        SummarySection(
-                            income = totalIncome,
-                            expense = totalExpense,
-                            savings = totalSavings,
-                            savingsLabel = savingsLabel
-                        )
-                    }
+                // Always display the 3 Summary Cards at the top (even when ₹0) so the dashboard stays anchored
+                item(key = "summary_section") {
+                    SummarySection(
+                        income = totalIncome,
+                        expense = totalExpense,
+                        savings = totalSavings,
+                        savingsLabel = savingsLabel
+                    )
+                }
 
+                if (monthTransactions.isNotEmpty()) {
                     groupedTransactions.entries.forEachIndexed { index, entry ->
                         val date = entry.key
                         val dailyTransactions = entry.value
@@ -205,21 +211,15 @@ fun HomeScreen(
                         }
                     }
                 } else {
-                    item {
+                    item(key = "empty_month_card") {
                         val monthName = selectedMonth.format(DateTimeFormatter.ofPattern("MMMM yyyy"))
-                        Box(
-                            modifier = Modifier
-                                .fillParentMaxSize()
-                                .padding(bottom = 100.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                "No transactions in $monthName",
-                                style = MaterialTheme.typography.bodyLarge,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onSurface
-                            )
-                        }
+                        HomeEmptyMonthCard(
+                            monthName = monthName,
+                            isFirstEverEntry = transactions.isEmpty(),
+                            canQuickLog = selectedMonth <= YearMonth.now(),
+                            onAddTransactionClick = onAddTransactionClick,
+                            onScanReceiptClick = onScanReceiptClick
+                        )
                     }
                 }
             }
@@ -541,6 +541,117 @@ fun TransactionRow(
         },
         colors = ListItemDefaults.colors(containerColor = Color.Transparent)
     )
+}
+
+@Composable
+private fun HomeEmptyMonthCard(
+    monthName: String,
+    isFirstEverEntry: Boolean,
+    canQuickLog: Boolean,
+    onAddTransactionClick: () -> Unit,
+    onScanReceiptClick: (() -> Unit)?
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 28.dp),
+        shape = RoundedCornerShape(22.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.28f)
+        )
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 24.dp, vertical = 32.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Surface(
+                shape = CircleShape,
+                color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f),
+                modifier = Modifier.size(64.dp)
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        imageVector = Icons.Rounded.AccountBalanceWallet,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(30.dp)
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(2.dp))
+
+            Text(
+                text = if (isFirstEverEntry) {
+                    "Ready for your first entry"
+                } else {
+                    "No transactions in $monthName"
+                },
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface,
+                textAlign = TextAlign.Center
+            )
+
+            Text(
+                text = if (isFirstEverEntry) {
+                    "Log an expense or income manually, or snap a receipt photo to extract the amount, date, and category automatically."
+                } else {
+                    "Nothing recorded for $monthName yet. Add a transaction manually or scan a receipt below."
+                },
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center,
+                lineHeight = MaterialTheme.typography.bodySmall.lineHeight * 1.3
+            )
+
+            if (canQuickLog) {
+                Spacer(modifier = Modifier.height(6.dp))
+
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Button(
+                        onClick = onAddTransactionClick,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(46.dp),
+                        shape = RoundedCornerShape(14.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Add,
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Add Transaction", fontWeight = FontWeight.SemiBold)
+                    }
+
+                    if (onScanReceiptClick != null) {
+                        FilledTonalButton(
+                            onClick = onScanReceiptClick,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(46.dp),
+                            shape = RoundedCornerShape(14.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Rounded.DocumentScanner,
+                                contentDescription = null,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("Scan Receipt", fontWeight = FontWeight.SemiBold)
+                        }
+                    }
+                }
+            }
+        }
+    }
 }
 
 @Composable

@@ -33,7 +33,8 @@ data class CoachUiState(
 class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val repository: ExpenseRepository
     private val themeManager by lazy { ThemeManager(application) }
-    
+    private val onboardingManager by lazy { OnboardingManager(application) }
+
     private val _selectedMonth = MutableStateFlow(YearMonth.now())
     val selectedMonth: StateFlow<YearMonth> = _selectedMonth.asStateFlow()
 
@@ -42,6 +43,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     private val _isTransactionsLoading = MutableStateFlow(true)
     val isTransactionsLoading: StateFlow<Boolean> = _isTransactionsLoading.asStateFlow()
+
+    val hasCompletedOnboarding: StateFlow<Boolean> = onboardingManager.hasCompletedOnboarding
 
     val allTransactions: StateFlow<List<TransactionWithTag>>
     val incomeTags: StateFlow<List<Tag>>
@@ -58,7 +61,13 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         repository = ExpenseRepository(database.transactionDao(), database.tagDao(), database)
 
         allTransactions = repository.allTransactions
-            .onEach { _isTransactionsLoading.value = false }
+            .onEach { list ->
+                _isTransactionsLoading.value = false
+                // If an existing user upgraded the app and already has transactions, mark onboarding complete automatically
+                if (list.isNotEmpty() && !onboardingManager.isCompleted) {
+                    onboardingManager.setCompleted()
+                }
+            }
             .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
         incomeTags = repository.getTagsByType(TransactionType.INCOME)
@@ -93,6 +102,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     fun setTheme(theme: AppTheme) {
         themeManager.setTheme(theme)
+    }
+
+    fun completeOnboarding() {
+        onboardingManager.setCompleted()
     }
 
     fun addTransaction(amount: Double, type: TransactionType, tagId: Long, note: String?, timestamp: Long) {

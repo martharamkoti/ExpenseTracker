@@ -289,6 +289,21 @@
       "event_name": "data_reset_factory",
       "trigger": "User confirms full factory reset of transactions and tags.",
       "description": "Tracks full app data resets."
+    },
+    {
+      "event_name": "screen_view_welcome",
+      "trigger": "First-time user views the Welcome screen.",
+      "description": "Logged on fresh installation before onboarding is completed."
+    },
+    {
+      "event_name": "onboarding_get_started",
+      "trigger": "User taps 'Get Started' on the Welcome screen.",
+      "description": "Marks first-launch onboarding completion."
+    },
+    {
+      "event_name": "onboarding_restore_backup",
+      "trigger": "User taps 'Restore from backup' on the Welcome screen.",
+      "description": "Tracks returning users jumping directly to Backup & Restore on a new device."
     }
   ]
 }

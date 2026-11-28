@@ -143,6 +143,7 @@ fun MainApp(viewModel: MainViewModel) {
     val selectedMonth by viewModel.selectedMonth.collectAsState()
     val currentTheme by viewModel.theme.collectAsState()
     val coachUiState by viewModel.coachUiState.collectAsState()
+    val hasCompletedOnboarding by viewModel.hasCompletedOnboarding.collectAsState()
 
     val allAvailableTags = incomeTags + expenseTags
     val latestExpenseTags by rememberUpdatedState(expenseTags)
@@ -226,11 +227,12 @@ fun MainApp(viewModel: MainViewModel) {
         editingTransaction = null
     }
 
-    val inModalFlow = showAddScreen || showSearchScreen || editingTransaction != null || isScanningReceipt || scannedReceiptResult != null
+    val inModalFlow = !hasCompletedOnboarding || showAddScreen || showSearchScreen || editingTransaction != null || isScanningReceipt || scannedReceiptResult != null
 
     // Screen View Analytics
-    LaunchedEffect(currentScreen, showAddScreen, showSearchScreen, editingTransaction, scannedReceiptResult) {
+    LaunchedEffect(hasCompletedOnboarding, currentScreen, showAddScreen, showSearchScreen, editingTransaction, scannedReceiptResult) {
         when {
+            !hasCompletedOnboarding -> AnalyticsLogger.logScreenView("welcome")
             scannedReceiptResult != null -> AnalyticsLogger.logScreenView("receipt_review")
             editingTransaction != null -> AnalyticsLogger.logScreenView("edit_transaction")
             showAddScreen -> AnalyticsLogger.logScreenView("add_transaction")
@@ -387,6 +389,19 @@ fun MainApp(viewModel: MainViewModel) {
         }
     ) {
         when {
+            !hasCompletedOnboarding -> {
+                WelcomeScreen(
+                    onGetStartedClick = {
+                        AnalyticsLogger.logEvent("onboarding_get_started")
+                        viewModel.completeOnboarding()
+                    },
+                    onRestoreBackupClick = {
+                        AnalyticsLogger.logEvent("onboarding_restore_backup")
+                        viewModel.completeOnboarding()
+                        currentScreen = Screen.BackupRestore
+                    }
+                )
+            }
             isScanningReceipt -> {
                 ReceiptScanningScreen(
                     onCancel = { clearReceiptScanState() }
@@ -533,6 +548,10 @@ fun MainApp(viewModel: MainViewModel) {
                             onSearchClick = {
                                 AnalyticsLogger.logEvent("click_open_search")
                                 showSearchScreen = true
+                            },
+                            onScanReceiptClick = {
+                                AnalyticsLogger.logEvent("receipt_scan_open")
+                                showReceiptSourceSheet = true
                             }
                         )
                         Screen.Stats -> StatsScreen(
@@ -554,6 +573,10 @@ fun MainApp(viewModel: MainViewModel) {
                             onAskCoachClick = {
                                 AnalyticsLogger.logEvent("coach_open_from_stats")
                                 currentScreen = Screen.Coach
+                            },
+                            onAddTransactionClick = {
+                                AnalyticsLogger.logEvent("click_add_transaction_fab")
+                                showAddScreen = true
                             }
                         )
                         Screen.Coach -> FinanceCoachScreen(
