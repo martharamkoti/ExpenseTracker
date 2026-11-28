@@ -16,10 +16,14 @@ object AnalyticsLogger {
      * @param params An optional bundle of parameters to associate with the event.
      */
     fun logEvent(eventName: String, params: Bundle? = null) {
-        if (params != null) {
-            Firebase.analytics.logEvent(eventName, params)
-        } else {
-            Firebase.analytics.logEvent(eventName, null)
+        try {
+            if (params != null) {
+                Firebase.analytics.logEvent(eventName, params)
+            } else {
+                Firebase.analytics.logEvent(eventName, null)
+            }
+        } catch (_: Exception) {
+            // Ignored in local unit test environments where Firebase is not initialized
         }
     }
 
@@ -27,6 +31,10 @@ object AnalyticsLogger {
      * Logs a screen view event with a dynamic event name.
      */
     fun logScreenView(screenName: String) {
-        Firebase.analytics.logEvent("screen_view_${screenName}", null)
+        try {
+            Firebase.analytics.logEvent("screen_view_${screenName}", null)
+        } catch (_: Exception) {
+            // Ignored in local unit test environments where Firebase is not initialized
+        }
     }
 }

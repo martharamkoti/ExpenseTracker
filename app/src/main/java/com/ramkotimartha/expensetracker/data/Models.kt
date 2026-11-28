@@ -14,7 +14,8 @@ data class Tag(
     @PrimaryKey(autoGenerate = true)
     val id: Long = 0,
     val name: String,
-    val type: TransactionType
+    val type: TransactionType,
+    val iconKey: String? = null
 )
 
 @Entity(

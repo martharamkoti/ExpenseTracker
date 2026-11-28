@@ -144,6 +144,166 @@
       "event_name": "click_save_transaction_invalid",
       "trigger": "User taps 'Save' when the form is invalid (e.g., no tag).",
       "description": "Tracks user attempts to save with incomplete data."
+    },
+    {
+      "event_name": "tag_auto_suggested",
+      "trigger": "SmartTagSuggester auto-selects a matching tag based on the note.",
+      "description": "Logs auto-suggested tag name ('tag_name') and signal ('source')."
+    },
+    {
+      "event_name": "tag_auto_suggestion_overridden",
+      "trigger": "User manually selects a different tag after an auto-suggestion.",
+      "description": "Tracks manual overrides ('suggested_tag' vs 'selected_tag') to gauge suggestion accuracy."
+    },
+    {
+      "event_name": "receipt_scan_open",
+      "trigger": "User taps 'Scan Receipt' or 'Rescan'.",
+      "description": "Opens the camera/gallery receipt source sheet."
+    },
+    {
+      "event_name": "receipt_scan_camera",
+      "trigger": "User selects 'Take Photo' to scan a receipt.",
+      "description": "Tracks camera capture usage for receipt scanning."
+    },
+    {
+      "event_name": "receipt_scan_gallery",
+      "trigger": "User selects 'Choose from Gallery' to scan a receipt.",
+      "description": "Tracks gallery image selection usage for receipt scanning."
+    },
+    {
+      "event_name": "receipt_scan_success",
+      "trigger": "On-device OCR extracts structured fields from a receipt.",
+      "description": "Tracks successful receipt field extraction."
+    },
+    {
+      "event_name": "receipt_scan_empty",
+      "trigger": "On-device OCR finds no structured fields on the selected image.",
+      "description": "Tracks unreadable or non-receipt images."
+    },
+    {
+      "event_name": "receipt_scan_save",
+      "trigger": "User confirms and saves an expense from the Receipt Review screen.",
+      "description": "Primary conversion event for the AI receipt scanner."
+    },
+    {
+      "event_name": "screen_view_receipt_review",
+      "trigger": "User views the editable Receipt Review screen.",
+      "description": "Logged when extracted receipt fields are displayed for verification."
+    },
+    {
+      "event_name": "screen_view_coach",
+      "trigger": "User views the Finance Coach screen.",
+      "description": "Logged when the conversational AI Finance Coach is visible."
+    },
+    {
+      "event_name": "coach_question_sent",
+      "trigger": "User submits a custom question in Finance Coach.",
+      "description": "Tracks natural-language Finance Coach queries."
+    },
+    {
+      "event_name": "coach_prompt_chip_clicked",
+      "trigger": "User taps a starter or follow-up prompt chip in Finance Coach.",
+      "description": "Tracks engagement with guided Finance Coach prompts."
+    },
+    {
+      "event_name": "coach_chat_cleared",
+      "trigger": "User clears the Finance Coach conversation.",
+      "description": "Tracks session resets in Finance Coach."
+    },
+    {
+      "event_name": "coach_open_from_stats",
+      "trigger": "User taps 'Ask Coach' from the Stats Insights card.",
+      "description": "Tracks contextual entry into Finance Coach from Monthly Stats."
+    },
+    {
+      "event_name": "transaction_delete_undo",
+      "trigger": "User taps 'Undo' on the snackbar after deleting a transaction.",
+      "description": "Tracks accidental delete recoveries on HomeScreen."
+    },
+    {
+      "event_name": "tag_reassign_and_delete",
+      "trigger": "User reassigns linked transactions to another tag before deleting a tag.",
+      "description": "Tracks usage of safe tag deletion protection."
+    },
+    {
+      "event_name": "click_open_search",
+      "trigger": "User taps the search icon on the Home screen.",
+      "description": "Opens the global transaction search screen."
+    },
+    {
+      "event_name": "screen_view_search",
+      "trigger": "User views the global Search Transactions screen.",
+      "description": "Logged when the global search screen is visible."
+    },
+    {
+      "event_name": "drawer_select_export_report",
+      "trigger": "User taps 'Export Report' in the navigation drawer.",
+      "description": "Opens the CSV/PDF report export screen."
+    },
+    {
+      "event_name": "drawer_select_backup_restore",
+      "trigger": "User taps 'Backup & Restore' in the navigation drawer.",
+      "description": "Opens the .mtbak backup and restore screen."
+    },
+    {
+      "event_name": "export_report_csv_success",
+      "trigger": "User exports a date-range CSV report.",
+      "description": "Tracks successful CSV report generation."
+    },
+    {
+      "event_name": "export_report_pdf_success",
+      "trigger": "User exports a date-range PDF report.",
+      "description": "Tracks successful PDF report generation."
+    },
+    {
+      "event_name": "backup_directory_selected",
+      "trigger": "User selects or changes the backup directory.",
+      "description": "Tracks backup folder setup."
+    },
+    {
+      "event_name": "backup_create_success",
+      "trigger": "User creates a .mtbak backup file.",
+      "description": "Tracks successful local backup creation."
+    },
+    {
+      "event_name": "backup_restore_success",
+      "trigger": "User restores data from a .mtbak backup file.",
+      "description": "Tracks successful backup restoration."
+    },
+    {
+      "event_name": "drawer_select_delete_reset",
+      "trigger": "User taps 'Delete & Reset' in the navigation drawer.",
+      "description": "Opens the data reset screen."
+    },
+    {
+      "event_name": "drawer_select_help",
+      "trigger": "User taps 'Help & Guide' in the navigation drawer.",
+      "description": "Opens the in-app Help & Guide screen."
+    },
+    {
+      "event_name": "data_reset_transactions_only",
+      "trigger": "User confirms clearing all transactions while keeping tags.",
+      "description": "Tracks partial data resets."
+    },
+    {
+      "event_name": "data_reset_factory",
+      "trigger": "User confirms full factory reset of transactions and tags.",
+      "description": "Tracks full app data resets."
+    },
+    {
+      "event_name": "screen_view_welcome",
+      "trigger": "First-time user views the Welcome screen.",
+      "description": "Logged on fresh installation before onboarding is completed."
+    },
+    {
+      "event_name": "onboarding_get_started",
+      "trigger": "User taps 'Get Started' on the Welcome screen.",
+      "description": "Marks first-launch onboarding completion."
+    },
+    {
+      "event_name": "onboarding_restore_backup",
+      "trigger": "User taps 'Restore from backup' on the Welcome screen.",
+      "description": "Tracks returning users jumping directly to Backup & Restore on a new device."
     }
   ]
 }

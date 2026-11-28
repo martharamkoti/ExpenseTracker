@@ -2,6 +2,9 @@ package com.ramkotimartha.expensetracker.ui.theme
 
 import android.app.Activity
 import android.os.Build
+import androidx.activity.ComponentActivity
+import androidx.activity.SystemBarStyle
+import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
@@ -13,6 +16,7 @@ import androidx.compose.runtime.SideEffect
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
+import androidx.core.graphics.drawable.toDrawable
 import androidx.core.view.WindowCompat
 import com.ramkotimartha.expensetracker.data.AppTheme
 
@@ -51,11 +55,27 @@ fun ExpenseTrackerTheme(
     val view = LocalView.current
     if (!view.isInEditMode) {
         SideEffect {
-            val window = (view.context as Activity).window
-            window.statusBarColor = colorScheme.background.toArgb()
-            window.navigationBarColor = colorScheme.background.toArgb()
-            WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = !darkTheme
-            WindowCompat.getInsetsController(window, view).isAppearanceLightNavigationBars = !darkTheme
+            val backgroundArgb = colorScheme.background.toArgb()
+            val activity = view.context as? Activity
+            activity?.window?.let { window ->
+                window.setBackgroundDrawable(backgroundArgb.toDrawable())
+                WindowCompat.getInsetsController(window, view).apply {
+                    isAppearanceLightStatusBars = !darkTheme
+                    isAppearanceLightNavigationBars = !darkTheme
+                }
+            }
+            (activity as? ComponentActivity)?.enableEdgeToEdge(
+                statusBarStyle = if (darkTheme) {
+                    SystemBarStyle.dark(backgroundArgb)
+                } else {
+                    SystemBarStyle.light(backgroundArgb, backgroundArgb)
+                },
+                navigationBarStyle = if (darkTheme) {
+                    SystemBarStyle.dark(backgroundArgb)
+                } else {
+                    SystemBarStyle.light(backgroundArgb, backgroundArgb)
+                }
+            )
         }
     }
 

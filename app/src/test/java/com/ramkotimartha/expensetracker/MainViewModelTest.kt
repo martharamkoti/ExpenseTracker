@@ -6,6 +6,8 @@ import com.ramkotimartha.expensetracker.data.*
 import io.mockk.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.*
 import org.junit.*
@@ -103,5 +105,71 @@ class MainViewModelTest {
         advanceUntilIdle()
 
         coVerify { transactionDao.deleteTransaction(transaction) }
+    }
+
+    @Test
+    fun `suggestTag returns matching tag for candidate tags`() {
+        val tags = listOf(
+            Tag(id = 1L, name = "Food", type = TransactionType.EXPENSE),
+            Tag(id = 2L, name = "Transport", type = TransactionType.EXPENSE)
+        )
+
+        val suggestion = viewModel.suggestTag(
+            note = "Uber cab ride",
+            type = TransactionType.EXPENSE,
+            candidateTags = tags
+        )
+
+        Assert.assertNotNull(suggestion)
+        Assert.assertEquals("Transport", suggestion?.tag?.name)
+    }
+
+    @Test
+    fun `askFinanceCoach transitions from loading to grounded assistant reply`() = runTest {
+        val foodTag = Tag(id = 1L, name = "Food", type = TransactionType.EXPENSE)
+        val sampleTx = TransactionWithTag(
+            transaction = Transaction(
+                id = 10L,
+                amount = 850.0,
+                timestamp = System.currentTimeMillis(),
+                note = "Lunch",
+                tagId = foodTag.id,
+                type = TransactionType.EXPENSE
+            ),
+            tag = foodTag
+        )
+        every { transactionDao.getAllTransactionsWithTags() } returns flowOf(listOf(sampleTx))
+        every { tagDao.getTagsByType(TransactionType.EXPENSE) } returns flowOf(listOf(foodTag))
+
+        val freshVm = MainViewModel(application)
+        freshVm.askFinanceCoach("Where did most of my money go this month?", typingDelayMs = 100L)
+
+        // Immediately after asking: user message is appended and loading is true
+        Assert.assertTrue(freshVm.coachUiState.value.isLoading)
+        Assert.assertEquals(1, freshVm.coachUiState.value.messages.size)
+
+        advanceUntilIdle()
+
+        val finalState = freshVm.coachUiState.value
+        Assert.assertFalse(finalState.isLoading)
+        Assert.assertNull(finalState.errorMessage)
+        Assert.assertEquals(2, finalState.messages.size)
+        Assert.assertTrue(finalState.messages.last().text.contains("₹850"))
+        Assert.assertTrue(finalState.messages.last().text.contains("Food"))
+    }
+
+    @Test
+    fun `isTransactionsLoading stays true while DB query is pending and becomes false on emission`() = runTest {
+        every { transactionDao.getAllTransactionsWithTags() } returns flow {
+            delay(50)
+            emit(emptyList())
+        }
+
+        val loadingVm = MainViewModel(application)
+        runCurrent()
+        Assert.assertTrue(loadingVm.isTransactionsLoading.value)
+
+        advanceUntilIdle()
+        Assert.assertFalse(loadingVm.isTransactionsLoading.value)
     }
 }

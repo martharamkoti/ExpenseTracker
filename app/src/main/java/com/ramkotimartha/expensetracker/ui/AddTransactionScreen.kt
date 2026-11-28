@@ -8,13 +8,17 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.DateRange
+import androidx.compose.material.icons.rounded.AutoAwesome
+import androidx.compose.material.icons.rounded.DocumentScanner
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -27,6 +31,7 @@ import androidx.compose.ui.layout.layout
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.OffsetMapping
 import androidx.compose.ui.text.input.TransformedText
@@ -34,11 +39,13 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.ramkotimartha.expensetracker.ai.TagSuggestion
 import com.ramkotimartha.expensetracker.data.Tag
 import com.ramkotimartha.expensetracker.data.TransactionType
 import com.ramkotimartha.expensetracker.data.TransactionWithTag
 import com.ramkotimartha.expensetracker.utils.AnalyticsLogger
 import com.ramkotimartha.expensetracker.utils.CurrencyUtils
+import kotlinx.coroutines.delay
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
@@ -101,8 +108,10 @@ fun AddTransactionScreen(
     availableTags: List<Tag>,
     initialTransaction: TransactionWithTag? = null,
     onSave: (amount: Double, type: TransactionType, tagId: Long, note: String?, timestamp: Long) -> Unit,
-    onAddTag: (name: String, type: TransactionType) -> Unit,
-    onClose: () -> Unit
+    onAddTag: (name: String, type: TransactionType, iconKey: String?) -> Unit,
+    onClose: () -> Unit,
+    onSuggestTag: (note: String, type: TransactionType, availableTags: List<Tag>) -> TagSuggestion? = { _, _, _ -> null },
+    onScanReceiptClick: (() -> Unit)? = null
 ) {
     var amount by remember { 
         mutableStateOf(
@@ -120,6 +129,9 @@ fun AddTransactionScreen(
         ) 
     }
 
+    var isTagManuallySelected by remember { mutableStateOf(initialTransaction != null) }
+    var autoSuggestedTag by remember { mutableStateOf<TagSuggestion?>(null) }
+
     var showAddTagDialog by remember { mutableStateOf(false) }
     var newTagName by remember { mutableStateOf("") }
     var showDatePicker by remember { mutableStateOf(false) }
@@ -132,8 +144,41 @@ fun AddTransactionScreen(
             val newTag = availableTags.find { it.name == name && it.type == selectedType }
             if (newTag != null) {
                 selectedTagId = newTag.id
+                isTagManuallySelected = true
+                autoSuggestedTag = null
                 lastAddedTagName = null
                 attemptedSave = false
+            }
+        }
+    }
+
+    LaunchedEffect(note, selectedType, availableTags) {
+        if (isTagManuallySelected) return@LaunchedEffect
+
+        if (note.isBlank()) {
+            if (autoSuggestedTag != null) {
+                selectedTagId = null
+                autoSuggestedTag = null
+            }
+            return@LaunchedEffect
+        }
+
+        delay(120)
+        val suggestion = onSuggestTag(note, selectedType, availableTags)
+        if (!isTagManuallySelected) {
+            if (suggestion != null) {
+                if (selectedTagId != suggestion.tag.id) {
+                    AnalyticsLogger.logEvent("tag_auto_suggested", Bundle().apply {
+                        putString("tag_name", suggestion.tag.name)
+                        putString("source", suggestion.source.name.lowercase())
+                    })
+                }
+                selectedTagId = suggestion.tag.id
+                autoSuggestedTag = suggestion
+                attemptedSave = false
+            } else if (autoSuggestedTag != null) {
+                selectedTagId = null
+                autoSuggestedTag = null
             }
         }
     }
@@ -219,6 +264,7 @@ fun AddTransactionScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
+                .verticalScroll(rememberScrollState())
                 .padding(horizontal = 24.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(16.dp)
@@ -240,6 +286,8 @@ fun AddTransactionScreen(
                                 haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                                 selectedType = type
                                 selectedTagId = null
+                                isTagManuallySelected = false
+                                autoSuggestedTag = null
                                 attemptedSave = false
                             }
                         },
@@ -253,6 +301,60 @@ fun AddTransactionScreen(
                         )
                     ) {
                         Text(type.name, style = MaterialTheme.typography.labelLarge)
+                    }
+                }
+            }
+
+            // Scan Receipt quick-action banner (shown when adding a new Expense)
+            AnimatedVisibility(
+                visible = selectedType == TransactionType.EXPENSE &&
+                    initialTransaction == null &&
+                    onScanReceiptClick != null,
+                enter = fadeIn(),
+                exit = fadeOut()
+            ) {
+                Surface(
+                    onClick = { onScanReceiptClick?.invoke() },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp),
+                    color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f),
+                    border = BorderStroke(
+                        1.dp,
+                        MaterialTheme.colorScheme.primary.copy(alpha = 0.25f)
+                    )
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.DocumentScanner,
+                            contentDescription = "Scan Receipt",
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(22.dp)
+                        )
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "Scan Receipt",
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Text(
+                                text = "Auto-extract amount, date & category from photo",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        Icon(
+                            imageVector = Icons.Rounded.AutoAwesome,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(16.dp)
+                        )
                     }
                 }
             }
@@ -333,19 +435,86 @@ fun AddTransactionScreen(
                 }
             }
 
+            // Note Input (above Category so typing auto-suggests a tag naturally)
+            OutlinedTextField(
+                value = note,
+                onValueChange = { note = it },
+                placeholder = { Text("Add a note (optional)") },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 4.dp),
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                shape = RoundedCornerShape(16.dp),
+                colors = OutlinedTextFieldDefaults.colors(
+                    unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f),
+                    focusedBorderColor = if (selectedType == TransactionType.EXPENSE) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.secondary
+                )
+            )
+
             // Tag Selection
+            val isAutoSelectedActive = !isTagManuallySelected &&
+                autoSuggestedTag != null &&
+                selectedTagId == autoSuggestedTag?.tag?.id
+
             Column(
                 verticalArrangement = Arrangement.spacedBy(8.dp),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(top = 8.dp)
+                    .padding(top = 4.dp, bottom = 16.dp)
             ) {
-                Text(
-                    "Select Category",
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.SemiBold,
-                    color = if (attemptedSave && !isTagSelected) MaterialTheme.colorScheme.error.copy(alpha = 0.8f) else MaterialTheme.colorScheme.onSurface
-                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(
+                        "Select Category",
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.SemiBold,
+                        color = if (attemptedSave && !isTagSelected) MaterialTheme.colorScheme.error.copy(alpha = 0.8f) else MaterialTheme.colorScheme.onSurface
+                    )
+
+                    AnimatedVisibility(
+                        visible = isAutoSelectedActive,
+                        enter = fadeIn(),
+                        exit = fadeOut()
+                    ) {
+                        val badgeContainerColor = if (selectedType == TransactionType.EXPENSE) {
+                            MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.65f)
+                        } else {
+                            MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.65f)
+                        }
+                        val badgeContentColor = if (selectedType == TransactionType.EXPENSE) {
+                            MaterialTheme.colorScheme.primary
+                        } else {
+                            MaterialTheme.colorScheme.secondary
+                        }
+                        Surface(
+                            shape = RoundedCornerShape(50),
+                            color = badgeContainerColor
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Rounded.AutoAwesome,
+                                    contentDescription = "Auto-suggested category",
+                                    modifier = Modifier.size(13.dp),
+                                    tint = badgeContentColor
+                                )
+                                Text(
+                                    text = "Suggested",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontWeight = FontWeight.Medium,
+                                    color = badgeContentColor
+                                )
+                            }
+                        }
+                    }
+                }
 
                 val sortedTags = availableTags.filter { it.type == selectedType }.sortedBy { it.name }
 
@@ -356,14 +525,38 @@ fun AddTransactionScreen(
                 ) {
                     sortedTags.forEach { tag ->
                         val isSelected = selectedTagId == tag.id
+                        val showSparkleOnChip = isSelected && isAutoSelectedActive
+                        val visual = remember(tag.id, tag.name, tag.type, tag.iconKey) {
+                            CategoryVisuals.resolve(tag)
+                        }
                         FilterChip(
                             selected = isSelected,
                             onClick = {
+                                if (autoSuggestedTag != null && autoSuggestedTag?.tag?.id != tag.id) {
+                                    AnalyticsLogger.logEvent("tag_auto_suggestion_overridden", Bundle().apply {
+                                        putString("suggested_tag", autoSuggestedTag?.tag?.name ?: "")
+                                        putString("selected_tag", tag.name)
+                                    })
+                                }
                                 AnalyticsLogger.logEvent("click_select_tag", Bundle().apply {
                                     putString("tag_name", tag.name)
                                 })
                                 selectedTagId = tag.id
+                                isTagManuallySelected = true
+                                autoSuggestedTag = null
                                 attemptedSave = false
+                            },
+                            leadingIcon = {
+                                Icon(
+                                    imageVector = if (showSparkleOnChip) Icons.Rounded.AutoAwesome else visual.icon,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(16.dp),
+                                    tint = when {
+                                        isSelected && selectedType == TransactionType.EXPENSE -> MaterialTheme.colorScheme.onPrimary
+                                        isSelected -> MaterialTheme.colorScheme.onSecondary
+                                        else -> visual.softColor
+                                    }
+                                )
                             },
                             label = { Text(tag.name) },
                             shape = RoundedCornerShape(12.dp),
@@ -376,7 +569,8 @@ fun AddTransactionScreen(
                                 containerColor = Color.Transparent,
                                 labelColor = MaterialTheme.colorScheme.onSurfaceVariant,
                                 selectedContainerColor = if (selectedType == TransactionType.EXPENSE) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.secondary,
-                                selectedLabelColor = if (selectedType == TransactionType.EXPENSE) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSecondary
+                                selectedLabelColor = if (selectedType == TransactionType.EXPENSE) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSecondary,
+                                selectedLeadingIconColor = if (selectedType == TransactionType.EXPENSE) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSecondary
                             )
                         )
                     }
@@ -386,12 +580,25 @@ fun AddTransactionScreen(
                             AnalyticsLogger.logEvent("click_open_add_tag_dialog")
                             showAddTagDialog = true 
                         },
+                        leadingIcon = if (sortedTags.isEmpty()) {
+                            {
+                                Icon(
+                                    Icons.Default.Add,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
+                        } else null,
                         label = {
-                            Icon(
-                                Icons.Default.Add,
-                                contentDescription = null,
-                                modifier = Modifier.size(20.dp)
-                            )
+                            if (sortedTags.isEmpty()) {
+                                Text("Create category")
+                            } else {
+                                Icon(
+                                    Icons.Default.Add,
+                                    contentDescription = "Create category",
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
                         },
                         shape = RoundedCornerShape(12.dp),
                         border = InputChipDefaults.inputChipBorder(
@@ -415,18 +622,6 @@ fun AddTransactionScreen(
                     )
                 }
             }
-
-            OutlinedTextField(
-                value = note,
-                onValueChange = { note = it },
-                placeholder = { Text("Add a note (optional)") },
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(16.dp),
-                colors = OutlinedTextFieldDefaults.colors(
-                    unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f),
-                    focusedBorderColor = if (selectedType == TransactionType.EXPENSE) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.secondary
-                )
-            )
         }
     }
 
@@ -454,36 +649,17 @@ fun AddTransactionScreen(
     }
 
     if (showAddTagDialog) {
-        AlertDialog(
-            onDismissRequest = { showAddTagDialog = false },
-            title = { Text("New Tag") },
-            text = {
-                OutlinedTextField(
-                    value = newTagName,
-                    onValueChange = { newTagName = it },
-                    placeholder = { Text("Tag name (e.g. Coffee)") },
-                    singleLine = true,
-                    shape = RoundedCornerShape(12.dp)
-                )
+        CreateTagDialog(
+            transactionType = selectedType,
+            onDismiss = {
+                AnalyticsLogger.logEvent("cancel_add_tag")
+                showAddTagDialog = false
             },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        if (newTagName.isNotBlank()) {
-                            lastAddedTagName = newTagName
-                            onAddTag(newTagName, selectedType)
-                            newTagName = ""
-                            showAddTagDialog = false
-                        }
-                    },
-                    enabled = newTagName.isNotBlank()
-                ) { Text("Add") }
-            },
-            dismissButton = {
-                TextButton(onClick = { 
-                    AnalyticsLogger.logEvent("cancel_add_tag")
-                    showAddTagDialog = false 
-                }) { Text("Cancel") }
+            onConfirm = { name, iconKey ->
+                lastAddedTagName = name
+                onAddTag(name, selectedType, iconKey)
+                newTagName = ""
+                showAddTagDialog = false
             }
         )
     }
