@@ -9,11 +9,17 @@ interface TagDao {
     @Query("SELECT * FROM tags WHERE type = :type")
     fun getTagsByType(type: TransactionType): Flow<List<Tag>>
 
+    @Query("SELECT * FROM tags")
+    suspend fun getAllTagsOnce(): List<Tag>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertTag(tag: Tag): Long
 
     @Delete
     suspend fun deleteTag(tag: Tag)
+
+    @Query("DELETE FROM tags")
+    suspend fun deleteAllTags()
 }
 
 data class TransactionWithTag(
@@ -46,4 +52,10 @@ interface TransactionDao {
 
     @Query("UPDATE transactions SET tagId = :newTagId WHERE tagId = :oldTagId")
     suspend fun reassignTransactionsTag(oldTagId: Long, newTagId: Long)
+
+    @Query("SELECT * FROM transactions ORDER BY timestamp DESC, id DESC")
+    suspend fun getAllTransactionsOnce(): List<Transaction>
+
+    @Query("DELETE FROM transactions")
+    suspend fun deleteAllTransactions()
 }

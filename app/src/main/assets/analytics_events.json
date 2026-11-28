@@ -234,6 +234,41 @@
       "event_name": "screen_view_search",
       "trigger": "User views the global Search Transactions screen.",
       "description": "Logged when the global search screen is visible."
+    },
+    {
+      "event_name": "drawer_select_export_report",
+      "trigger": "User taps 'Export Report' in the navigation drawer.",
+      "description": "Opens the CSV/PDF report export screen."
+    },
+    {
+      "event_name": "drawer_select_backup_restore",
+      "trigger": "User taps 'Backup & Restore' in the navigation drawer.",
+      "description": "Opens the .mtbak backup and restore screen."
+    },
+    {
+      "event_name": "export_report_csv_success",
+      "trigger": "User exports a date-range CSV report.",
+      "description": "Tracks successful CSV report generation."
+    },
+    {
+      "event_name": "export_report_pdf_success",
+      "trigger": "User exports a date-range PDF report.",
+      "description": "Tracks successful PDF report generation."
+    },
+    {
+      "event_name": "backup_directory_selected",
+      "trigger": "User selects or changes the backup directory.",
+      "description": "Tracks backup folder setup."
+    },
+    {
+      "event_name": "backup_create_success",
+      "trigger": "User creates a .mtbak backup file.",
+      "description": "Tracks successful local backup creation."
+    },
+    {
+      "event_name": "backup_restore_success",
+      "trigger": "User restores data from a .mtbak backup file.",
+      "description": "Tracks successful backup restoration."
     }
   ]
 }

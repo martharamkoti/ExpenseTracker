@@ -13,7 +13,11 @@ import com.ramkotimartha.expensetracker.ai.ScannedReceiptResult
 import com.ramkotimartha.expensetracker.ai.SmartTagSuggester
 import com.ramkotimartha.expensetracker.ai.TagSuggestion
 import com.ramkotimartha.expensetracker.data.*
+import com.ramkotimartha.expensetracker.utils.BackupFileItem
+import com.ramkotimartha.expensetracker.utils.BackupManager
+import com.ramkotimartha.expensetracker.utils.BackupPayload
 import com.ramkotimartha.expensetracker.utils.CrashlyticsLogger
+import com.ramkotimartha.expensetracker.utils.RestoreMode
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
@@ -51,7 +55,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     init {
         val database = AppDatabase.getDatabase(application)
-        repository = ExpenseRepository(database.transactionDao(), database.tagDao())
+        repository = ExpenseRepository(database.transactionDao(), database.tagDao(), database)
 
         allTransactions = repository.allTransactions
             .onEach { _isTransactionsLoading.value = false }
@@ -251,5 +255,26 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     fun clearCoachConversation() {
         _coachUiState.value = CoachUiState()
+    }
+
+    suspend fun createBackupInDirectory(context: Context, treeUri: Uri): BackupFileItem {
+        val (tags, transactions) = repository.getBackupSnapshot()
+        return BackupManager.writeBackupToDirectory(
+            context = context,
+            treeUri = treeUri,
+            tags = tags,
+            transactions = transactions
+        )
+    }
+
+    suspend fun restoreFromBackupPayload(
+        payload: BackupPayload,
+        mode: RestoreMode
+    ): RestoreSummary {
+        return repository.restoreFromBackup(
+            backupTags = payload.tags,
+            backupTransactions = payload.transactions,
+            replaceExisting = mode == RestoreMode.REPLACE_ALL
+        )
     }
 }

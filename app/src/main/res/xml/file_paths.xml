@@ -3,4 +3,7 @@
     <cache-path
         name="receipt_scans"
         path="receipt_scans/" />
+    <cache-path
+        name="exported_reports"
+        path="exports/" />
 </paths>

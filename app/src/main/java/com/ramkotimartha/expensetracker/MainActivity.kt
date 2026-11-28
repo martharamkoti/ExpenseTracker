@@ -27,10 +27,12 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.BarChart
+import androidx.compose.material.icons.rounded.Description
 import androidx.compose.material.icons.rounded.Home
 import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.Menu
 import androidx.compose.material.icons.rounded.Palette
+import androidx.compose.material.icons.rounded.Save
 import androidx.compose.material.icons.rounded.Sell
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -103,6 +105,8 @@ sealed class Screen(val route: String, val title: String, val icon: ImageVector)
     object Stats : Screen("stats", "Stats", Icons.Rounded.BarChart)
     object Coach : Screen("coach", "Coach", Icons.Rounded.AutoAwesome)
     object Tags : Screen("tags", "Tags", Icons.Rounded.Sell)
+    object ExportReport : Screen("export_report", "Export Report", Icons.Rounded.Description)
+    object BackupRestore : Screen("backup_restore", "Backup & Restore", Icons.Rounded.Save)
     object About : Screen("about", "About", Icons.Rounded.Info)
 }
 
@@ -231,13 +235,17 @@ fun MainApp(viewModel: MainViewModel) {
         }
     }
 
+    val isDrawerSubScreen = currentScreen == Screen.About ||
+        currentScreen == Screen.ExportReport ||
+        currentScreen == Screen.BackupRestore
+
     // Handle system back button presses for various states
     if (drawerState.isOpen) {
         BackHandler {
             scope.launch { drawerState.close() }
         }
     }
-    if (currentScreen == Screen.About) {
+    if (isDrawerSubScreen) {
         BackHandler { currentScreen = Screen.Home }
     }
     if (showSearchScreen) {
@@ -252,16 +260,31 @@ fun MainApp(viewModel: MainViewModel) {
 
     ModalNavigationDrawer(
         drawerState = drawerState,
-        gesturesEnabled = currentScreen != Screen.About && !inModalFlow,
+        gesturesEnabled = !isDrawerSubScreen && !inModalFlow,
         drawerContent = {
             ModalDrawerSheet {
-                Spacer(Modifier.height(12.dp))
-                Text(
-                    "MoneyTrack",
-                    modifier = Modifier.padding(16.dp),
-                    style = MaterialTheme.typography.titleLarge,
-                    color = MaterialTheme.colorScheme.primary
+                Column(
+                    modifier = Modifier.padding(horizontal = 24.dp, vertical = 20.dp)
+                ) {
+                    Text(
+                        text = "MoneyTrack",
+                        style = MaterialTheme.typography.titleLarge,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                    Spacer(Modifier.height(2.dp))
+                    Text(
+                        text = "Version ${BuildConfig.VERSION_NAME}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+
+                HorizontalDivider(
+                    thickness = 0.5.dp,
+                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f)
                 )
+                Spacer(Modifier.height(8.dp))
+
                 NavigationDrawerItem(
                     label = { Text("Theme") },
                     selected = false,
@@ -273,6 +296,52 @@ fun MainApp(viewModel: MainViewModel) {
                     icon = { Icon(Icons.Rounded.Palette, contentDescription = null) },
                     modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
                 )
+
+                Spacer(Modifier.height(8.dp))
+                HorizontalDivider(
+                    thickness = 0.5.dp,
+                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
+                    modifier = Modifier.padding(horizontal = 20.dp)
+                )
+                Text(
+                    text = "Data & Reports",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.outline,
+                    modifier = Modifier.padding(horizontal = 28.dp, vertical = 12.dp)
+                )
+
+                NavigationDrawerItem(
+                    label = { Text("Export Report") },
+                    selected = currentScreen == Screen.ExportReport,
+                    onClick = {
+                        AnalyticsLogger.logEvent("drawer_select_export_report")
+                        scope.launch { drawerState.close() }
+                        currentScreen = Screen.ExportReport
+                    },
+                    icon = { Icon(Icons.Rounded.Description, contentDescription = null) },
+                    modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
+                )
+
+                NavigationDrawerItem(
+                    label = { Text("Backup & Restore") },
+                    selected = currentScreen == Screen.BackupRestore,
+                    onClick = {
+                        AnalyticsLogger.logEvent("drawer_select_backup_restore")
+                        scope.launch { drawerState.close() }
+                        currentScreen = Screen.BackupRestore
+                    },
+                    icon = { Icon(Icons.Rounded.Save, contentDescription = null) },
+                    modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
+                )
+
+                Spacer(Modifier.height(8.dp))
+                HorizontalDivider(
+                    thickness = 0.5.dp,
+                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
+                    modifier = Modifier.padding(horizontal = 20.dp)
+                )
+                Spacer(Modifier.height(8.dp))
+
                 NavigationDrawerItem(
                     label = { Text("About this app") },
                     selected = currentScreen == Screen.About,
@@ -373,7 +442,7 @@ fun MainApp(viewModel: MainViewModel) {
             else -> {
             Scaffold(
                 bottomBar = {
-                    if (currentScreen != Screen.About) {
+                    if (!isDrawerSubScreen) {
                         NavigationBar {
                             val items = listOf(Screen.Home, Screen.Stats, Screen.Coach, Screen.Tags)
                             items.forEach { screen ->
@@ -508,6 +577,26 @@ fun MainApp(viewModel: MainViewModel) {
                             onReassignAndDeleteTag = { tagToDelete, replacementTagId ->
                                 AnalyticsLogger.logEvent("tag_reassign_and_delete")
                                 viewModel.reassignAndDeleteTag(tagToDelete, replacementTagId)
+                            }
+                        )
+                        Screen.ExportReport -> ExportReportScreen(
+                            initialMonth = selectedMonth,
+                            transactions = transactions,
+                            onBackClick = {
+                                currentScreen = Screen.Home
+                            }
+                        )
+                        Screen.BackupRestore -> BackupRestoreScreen(
+                            transactionsCount = transactions.size,
+                            tagsCount = allAvailableTags.size,
+                            onBackClick = {
+                                currentScreen = Screen.Home
+                            },
+                            onCreateBackupInDirectory = { treeUri ->
+                                viewModel.createBackupInDirectory(context, treeUri)
+                            },
+                            onRestoreBackup = { payload, mode ->
+                                viewModel.restoreFromBackupPayload(payload, mode)
                             }
                         )
                         Screen.About -> AboutScreen(
