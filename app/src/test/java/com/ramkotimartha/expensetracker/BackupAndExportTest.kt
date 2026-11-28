@@ -139,4 +139,29 @@ class BackupAndExportTest {
             ReportExporter.suggestedFileName(from, to, "pdf")
         )
     }
+
+    @Test
+    fun `clearAllTransactions preserves custom tags while factoryResetToDefaults restores defaults`() = runBlocking {
+        val customTagId = repository.insertTag(
+            Tag(name = "Custom Hobby", type = TransactionType.EXPENSE, iconKey = "entertainment")
+        )
+        repository.insertTransaction(
+            Transaction(amount = 1200.0, timestamp = 1795400000000L, note = "Guitar strings", tagId = customTagId, type = TransactionType.EXPENSE)
+        )
+
+        // 1. Clear transactions only -> 0 transactions, custom tag remains
+        repository.clearAllTransactions()
+        assertTrue(repository.allTransactions.first().isEmpty())
+        val expenseTagsAfterClear = repository.getTagsByType(TransactionType.EXPENSE).first()
+        assertEquals(1, expenseTagsAfterClear.size)
+        assertEquals("Custom Hobby", expenseTagsAfterClear.first().name)
+
+        // 2. Factory reset -> 0 transactions, 6 default expense tags + 2 default income tags
+        repository.factoryResetToDefaults()
+        val resetExpenseTags = repository.getTagsByType(TransactionType.EXPENSE).first()
+        val resetIncomeTags = repository.getTagsByType(TransactionType.INCOME).first()
+        assertEquals(6, resetExpenseTags.size)
+        assertEquals(2, resetIncomeTags.size)
+        assertTrue(resetExpenseTags.none { it.name == "Custom Hobby" })
+    }
 }

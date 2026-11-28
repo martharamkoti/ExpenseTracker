@@ -269,6 +269,26 @@
       "event_name": "backup_restore_success",
       "trigger": "User restores data from a .mtbak backup file.",
       "description": "Tracks successful backup restoration."
+    },
+    {
+      "event_name": "drawer_select_delete_reset",
+      "trigger": "User taps 'Delete & Reset' in the navigation drawer.",
+      "description": "Opens the data reset screen."
+    },
+    {
+      "event_name": "drawer_select_help",
+      "trigger": "User taps 'Help & Guide' in the navigation drawer.",
+      "description": "Opens the in-app Help & Guide screen."
+    },
+    {
+      "event_name": "data_reset_transactions_only",
+      "trigger": "User confirms clearing all transactions while keeping tags.",
+      "description": "Tracks partial data resets."
+    },
+    {
+      "event_name": "data_reset_factory",
+      "trigger": "User confirms full factory reset of transactions and tags.",
+      "description": "Tracks full app data resets."
     }
   ]
 }

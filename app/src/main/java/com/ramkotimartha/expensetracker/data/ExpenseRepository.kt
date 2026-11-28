@@ -171,4 +171,33 @@ class ExpenseRepository(
             executeRestore()
         }
     }
+
+    suspend fun clearAllTransactions() {
+        val action: suspend () -> Unit = {
+            transactionDao.deleteAllTransactions()
+        }
+        if (database != null) {
+            database.withTransaction { action() }
+        } else {
+            action()
+        }
+    }
+
+    suspend fun factoryResetToDefaults() {
+        val action: suspend () -> Unit = {
+            transactionDao.deleteAllTransactions()
+            tagDao.deleteAllTags()
+            listOf("Food", "Groceries", "Transport", "Bills", "Shopping", "Health").forEach { name ->
+                tagDao.insertTag(Tag(name = name, type = TransactionType.EXPENSE))
+            }
+            listOf("Salary", "Other").forEach { name ->
+                tagDao.insertTag(Tag(name = name, type = TransactionType.INCOME))
+            }
+        }
+        if (database != null) {
+            database.withTransaction { action() }
+        } else {
+            action()
+        }
+    }
 }

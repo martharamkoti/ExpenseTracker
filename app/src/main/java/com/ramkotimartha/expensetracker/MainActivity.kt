@@ -25,6 +25,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.HelpOutline
 import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.BarChart
 import androidx.compose.material.icons.rounded.Description
@@ -32,6 +33,7 @@ import androidx.compose.material.icons.rounded.Home
 import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.Menu
 import androidx.compose.material.icons.rounded.Palette
+import androidx.compose.material.icons.rounded.RestartAlt
 import androidx.compose.material.icons.rounded.Save
 import androidx.compose.material.icons.rounded.Sell
 import androidx.compose.material3.*
@@ -107,6 +109,8 @@ sealed class Screen(val route: String, val title: String, val icon: ImageVector)
     object Tags : Screen("tags", "Tags", Icons.Rounded.Sell)
     object ExportReport : Screen("export_report", "Export Report", Icons.Rounded.Description)
     object BackupRestore : Screen("backup_restore", "Backup & Restore", Icons.Rounded.Save)
+    object DeleteReset : Screen("delete_reset", "Delete & Reset", Icons.Rounded.RestartAlt)
+    object Help : Screen("help", "Help & Guide", Icons.AutoMirrored.Rounded.HelpOutline)
     object About : Screen("about", "About", Icons.Rounded.Info)
 }
 
@@ -237,7 +241,9 @@ fun MainApp(viewModel: MainViewModel) {
 
     val isDrawerSubScreen = currentScreen == Screen.About ||
         currentScreen == Screen.ExportReport ||
-        currentScreen == Screen.BackupRestore
+        currentScreen == Screen.BackupRestore ||
+        currentScreen == Screen.DeleteReset ||
+        currentScreen == Screen.Help
 
     // Handle system back button presses for various states
     if (drawerState.isOpen) {
@@ -334,6 +340,18 @@ fun MainApp(viewModel: MainViewModel) {
                     modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
                 )
 
+                NavigationDrawerItem(
+                    label = { Text("Delete & Reset") },
+                    selected = currentScreen == Screen.DeleteReset,
+                    onClick = {
+                        AnalyticsLogger.logEvent("drawer_select_delete_reset")
+                        scope.launch { drawerState.close() }
+                        currentScreen = Screen.DeleteReset
+                    },
+                    icon = { Icon(Icons.Rounded.RestartAlt, contentDescription = null) },
+                    modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
+                )
+
                 Spacer(Modifier.height(8.dp))
                 HorizontalDivider(
                     thickness = 0.5.dp,
@@ -341,6 +359,18 @@ fun MainApp(viewModel: MainViewModel) {
                     modifier = Modifier.padding(horizontal = 20.dp)
                 )
                 Spacer(Modifier.height(8.dp))
+
+                NavigationDrawerItem(
+                    label = { Text("Help & Guide") },
+                    selected = currentScreen == Screen.Help,
+                    onClick = {
+                        AnalyticsLogger.logEvent("drawer_select_help")
+                        scope.launch { drawerState.close() }
+                        currentScreen = Screen.Help
+                    },
+                    icon = { Icon(Icons.AutoMirrored.Rounded.HelpOutline, contentDescription = null) },
+                    modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
+                )
 
                 NavigationDrawerItem(
                     label = { Text("About this app") },
@@ -597,6 +627,37 @@ fun MainApp(viewModel: MainViewModel) {
                             },
                             onRestoreBackup = { payload, mode ->
                                 viewModel.restoreFromBackupPayload(payload, mode)
+                            }
+                        )
+                        Screen.DeleteReset -> DeleteResetScreen(
+                            transactionsCount = transactions.size,
+                            tagsCount = allAvailableTags.size,
+                            onBackClick = {
+                                currentScreen = Screen.Home
+                            },
+                            onOpenBackupClick = {
+                                currentScreen = Screen.BackupRestore
+                            },
+                            onClearTransactionsOnly = {
+                                AnalyticsLogger.logEvent("data_reset_transactions_only")
+                                viewModel.clearTransactionsOnly()
+                            },
+                            onFactoryResetAll = {
+                                AnalyticsLogger.logEvent("data_reset_factory")
+                                viewModel.factoryResetApp(context)
+                            }
+                        )
+                        Screen.Help -> HelpScreen(
+                            onBackClick = {
+                                currentScreen = Screen.Home
+                            },
+                            onQuickAction = { action ->
+                                currentScreen = when (action) {
+                                    HelpQuickAction.OPEN_BACKUP_RESTORE -> Screen.BackupRestore
+                                    HelpQuickAction.OPEN_EXPORT_REPORT -> Screen.ExportReport
+                                    HelpQuickAction.OPEN_FINANCE_COACH -> Screen.Coach
+                                    HelpQuickAction.OPEN_MANAGE_TAGS -> Screen.Tags
+                                }
                             }
                         )
                         Screen.About -> AboutScreen(

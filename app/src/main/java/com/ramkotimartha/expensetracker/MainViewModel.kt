@@ -277,4 +277,16 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             replaceExisting = mode == RestoreMode.REPLACE_ALL
         )
     }
+
+    suspend fun clearTransactionsOnly() {
+        repository.clearAllTransactions()
+        clearCoachConversation()
+    }
+
+    suspend fun factoryResetApp(context: Context) {
+        repository.factoryResetToDefaults()
+        ReceiptScanner.clearCachedReceipts(context)
+        clearCoachConversation()
+        _selectedMonth.value = YearMonth.now()
+    }
 }
