@@ -694,12 +694,25 @@ fun ReceiptReviewScreen(
                     InputChip(
                         selected = false,
                         onClick = { showAddTagDialog = true },
+                        leadingIcon = if (expenseTags.isEmpty()) {
+                            {
+                                Icon(
+                                    imageVector = Icons.Default.Add,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
+                        } else null,
                         label = {
-                            Icon(
-                                imageVector = Icons.Default.Add,
-                                contentDescription = "Add Tag",
-                                modifier = Modifier.size(20.dp)
-                            )
+                            if (expenseTags.isEmpty()) {
+                                Text("Create category")
+                            } else {
+                                Icon(
+                                    imageVector = Icons.Default.Add,
+                                    contentDescription = "Add Tag",
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
                         },
                         shape = RoundedCornerShape(12.dp),
                         border = InputChipDefaults.inputChipBorder(

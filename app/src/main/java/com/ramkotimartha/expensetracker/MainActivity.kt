@@ -59,7 +59,9 @@ import com.ramkotimartha.expensetracker.ui.theme.ExpenseTrackerTheme
 import com.ramkotimartha.expensetracker.utils.AnalyticsLogger
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
+import java.time.Instant
 import java.time.YearMonth
+import java.time.ZoneId
 
 class MainActivity : ComponentActivity() {
     private val viewModel: MainViewModel by viewModels()
@@ -121,6 +123,7 @@ fun MainApp(viewModel: MainViewModel) {
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val scope = rememberCoroutineScope()
     var currentScreen by remember { mutableStateOf<Screen>(Screen.Home) }
+    var returnScreen by remember { mutableStateOf<Screen?>(null) }
     var showAddScreen by rememberSaveable { mutableStateOf(false) }
     var showSearchScreen by rememberSaveable { mutableStateOf(false) }
     var editingTransaction by remember { mutableStateOf<TransactionWithTag?>(null) }
@@ -247,14 +250,20 @@ fun MainApp(viewModel: MainViewModel) {
         currentScreen == Screen.DeleteReset ||
         currentScreen == Screen.Help
 
-    // Handle system back button presses for various states
+    val navigateBackFromCurrentScreen: () -> Unit = {
+        val target = returnScreen ?: Screen.Home
+        returnScreen = null
+        currentScreen = target
+    }
+
+    // Handle system back button presses (bottom-most enabled BackHandler takes priority)
+    if (currentScreen != Screen.Home) {
+        BackHandler { navigateBackFromCurrentScreen() }
+    }
     if (drawerState.isOpen) {
         BackHandler {
             scope.launch { drawerState.close() }
         }
-    }
-    if (isDrawerSubScreen) {
-        BackHandler { currentScreen = Screen.Home }
     }
     if (showSearchScreen) {
         BackHandler { showSearchScreen = false }
@@ -324,6 +333,7 @@ fun MainApp(viewModel: MainViewModel) {
                     onClick = {
                         AnalyticsLogger.logEvent("drawer_select_export_report")
                         scope.launch { drawerState.close() }
+                        returnScreen = null
                         currentScreen = Screen.ExportReport
                     },
                     icon = { Icon(Icons.Rounded.Description, contentDescription = null) },
@@ -336,6 +346,7 @@ fun MainApp(viewModel: MainViewModel) {
                     onClick = {
                         AnalyticsLogger.logEvent("drawer_select_backup_restore")
                         scope.launch { drawerState.close() }
+                        returnScreen = null
                         currentScreen = Screen.BackupRestore
                     },
                     icon = { Icon(Icons.Rounded.Save, contentDescription = null) },
@@ -348,6 +359,7 @@ fun MainApp(viewModel: MainViewModel) {
                     onClick = {
                         AnalyticsLogger.logEvent("drawer_select_delete_reset")
                         scope.launch { drawerState.close() }
+                        returnScreen = null
                         currentScreen = Screen.DeleteReset
                     },
                     icon = { Icon(Icons.Rounded.RestartAlt, contentDescription = null) },
@@ -368,6 +380,7 @@ fun MainApp(viewModel: MainViewModel) {
                     onClick = {
                         AnalyticsLogger.logEvent("drawer_select_help")
                         scope.launch { drawerState.close() }
+                        returnScreen = null
                         currentScreen = Screen.Help
                     },
                     icon = { Icon(Icons.AutoMirrored.Rounded.HelpOutline, contentDescription = null) },
@@ -380,6 +393,7 @@ fun MainApp(viewModel: MainViewModel) {
                     onClick = {
                         AnalyticsLogger.logEvent("drawer_select_about")
                         scope.launch { drawerState.close() }
+                        returnScreen = null
                         currentScreen = Screen.About
                     },
                     icon = { Icon(Icons.Rounded.Info, contentDescription = null) },
@@ -416,6 +430,10 @@ fun MainApp(viewModel: MainViewModel) {
                     errorMessage = receiptScanError,
                     onSaveExpense = { amount, tagId, note, timestamp ->
                         AnalyticsLogger.logEvent("receipt_scan_save")
+                        val savedMonth = YearMonth.from(
+                            Instant.ofEpochMilli(timestamp).atZone(ZoneId.systemDefault()).toLocalDate()
+                        )
+                        viewModel.selectMonth(savedMonth)
                         viewModel.addTransaction(
                             amount = amount,
                             type = TransactionType.EXPENSE,
@@ -446,11 +464,15 @@ fun MainApp(viewModel: MainViewModel) {
                     availableTags = allAvailableTags,
                     initialTransaction = editingTransaction,
                     onSave = { amount, type, tagId, note, timestamp ->
+                        val savedMonth = YearMonth.from(
+                            Instant.ofEpochMilli(timestamp).atZone(ZoneId.systemDefault()).toLocalDate()
+                        )
                         if (editingTransaction != null) {
                             AnalyticsLogger.logEvent("transaction_save_edit")
                             viewModel.updateTransaction(editingTransaction!!.transaction.id, amount, type, tagId, note, timestamp)
                         } else {
                             AnalyticsLogger.logEvent("transaction_save_new")
+                            viewModel.selectMonth(savedMonth)
                             viewModel.addTransaction(amount, type, tagId, note, timestamp)
                         }
                         closeAddEditScreen()
@@ -481,6 +503,11 @@ fun MainApp(viewModel: MainViewModel) {
                     onRestoreTransaction = { restoredTx ->
                         AnalyticsLogger.logEvent("transaction_delete_undo")
                         viewModel.restoreTransaction(restoredTx)
+                    },
+                    onAddTransactionClick = {
+                        showSearchScreen = false
+                        AnalyticsLogger.logEvent("click_add_transaction_fab")
+                        showAddScreen = true
                     }
                 )
             }
@@ -495,7 +522,10 @@ fun MainApp(viewModel: MainViewModel) {
                                     icon = { Icon(screen.icon, contentDescription = screen.title) },
                                     label = { Text(screen.title) },
                                     selected = currentScreen == screen,
-                                    onClick = { currentScreen = screen },
+                                    onClick = {
+                                        returnScreen = null
+                                        currentScreen = screen
+                                    },
                                     colors = NavigationBarItemDefaults.colors(
                                         selectedIconColor = MaterialTheme.colorScheme.primary,
                                         selectedTextColor = MaterialTheme.colorScheme.primary,
@@ -636,14 +666,14 @@ fun MainApp(viewModel: MainViewModel) {
                             initialMonth = selectedMonth,
                             transactions = transactions,
                             onBackClick = {
-                                currentScreen = Screen.Home
+                                navigateBackFromCurrentScreen()
                             }
                         )
                         Screen.BackupRestore -> BackupRestoreScreen(
                             transactionsCount = transactions.size,
                             tagsCount = allAvailableTags.size,
                             onBackClick = {
-                                currentScreen = Screen.Home
+                                navigateBackFromCurrentScreen()
                             },
                             onCreateBackupInDirectory = { treeUri ->
                                 viewModel.createBackupInDirectory(context, treeUri)
@@ -656,9 +686,10 @@ fun MainApp(viewModel: MainViewModel) {
                             transactionsCount = transactions.size,
                             tagsCount = allAvailableTags.size,
                             onBackClick = {
-                                currentScreen = Screen.Home
+                                navigateBackFromCurrentScreen()
                             },
                             onOpenBackupClick = {
+                                returnScreen = Screen.DeleteReset
                                 currentScreen = Screen.BackupRestore
                             },
                             onClearTransactionsOnly = {
@@ -672,9 +703,10 @@ fun MainApp(viewModel: MainViewModel) {
                         )
                         Screen.Help -> HelpScreen(
                             onBackClick = {
-                                currentScreen = Screen.Home
+                                navigateBackFromCurrentScreen()
                             },
                             onQuickAction = { action ->
+                                returnScreen = Screen.Help
                                 currentScreen = when (action) {
                                     HelpQuickAction.OPEN_BACKUP_RESTORE -> Screen.BackupRestore
                                     HelpQuickAction.OPEN_EXPORT_REPORT -> Screen.ExportReport
@@ -686,7 +718,7 @@ fun MainApp(viewModel: MainViewModel) {
                         Screen.About -> AboutScreen(
                             onBackClick = { 
                                 AnalyticsLogger.logEvent("about_navigate_back")
-                                currentScreen = Screen.Home 
+                                navigateBackFromCurrentScreen()
                             }
                         )
                     }

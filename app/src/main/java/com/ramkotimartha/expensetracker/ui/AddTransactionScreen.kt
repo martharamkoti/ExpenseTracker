@@ -580,12 +580,25 @@ fun AddTransactionScreen(
                             AnalyticsLogger.logEvent("click_open_add_tag_dialog")
                             showAddTagDialog = true 
                         },
+                        leadingIcon = if (sortedTags.isEmpty()) {
+                            {
+                                Icon(
+                                    Icons.Default.Add,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
+                        } else null,
                         label = {
-                            Icon(
-                                Icons.Default.Add,
-                                contentDescription = null,
-                                modifier = Modifier.size(20.dp)
-                            )
+                            if (sortedTags.isEmpty()) {
+                                Text("Create category")
+                            } else {
+                                Icon(
+                                    Icons.Default.Add,
+                                    contentDescription = "Create category",
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
                         },
                         shape = RoundedCornerShape(12.dp),
                         border = InputChipDefaults.inputChipBorder(

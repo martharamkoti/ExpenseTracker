@@ -4,12 +4,13 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.DeleteOutline
-import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.Menu
+import androidx.compose.material.icons.rounded.Sell
 import androidx.compose.material.icons.rounded.WarningAmber
 import androidx.compose.material3.*
 import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
@@ -105,17 +106,59 @@ fun TagManagementScreen(
             }
 
             if (filteredTags.isEmpty()) {
-                Box(
+                val typeWord = if (selectedTab == 0) "expense" else "income"
+                Card(
                     modifier = Modifier
-                        .fillMaxSize()
-                        .padding(bottom = 64.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = "Tap + to add categories",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 32.dp),
+                    shape = RoundedCornerShape(22.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.28f)
                     )
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 24.dp, vertical = 36.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Surface(
+                            shape = CircleShape,
+                            color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f),
+                            modifier = Modifier.size(64.dp)
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(
+                                    imageVector = Icons.Rounded.Sell,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(28.dp)
+                                )
+                            }
+                        }
+                        Text(
+                            text = "No $typeWord categories yet",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            textAlign = TextAlign.Center
+                        )
+                        Text(
+                            text = "Create a category with a soft custom icon to start organizing your $typeWord entries.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            textAlign = TextAlign.Center
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Button(
+                            onClick = { showAddDialog = true },
+                            shape = RoundedCornerShape(14.dp)
+                        ) {
+                            Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("Create Category", fontWeight = FontWeight.SemiBold)
+                        }
+                    }
                 }
             } else {
                 LazyColumn(
@@ -123,10 +166,8 @@ fun TagManagementScreen(
                     contentPadding = PaddingValues(top = 8.dp, bottom = 88.dp)
                 ) {
                     items(filteredTags, key = { it.id }) { tag ->
-                        val count = tagUsageCounts[tag.id] ?: if (tag.id in tagsInUse) 1 else 0
                         TagItem(
                             tag = tag,
-                            usageCount = count,
                             onDeleteRequest = {
                                 tagToDelete = tag
                                 showBottomSheet = true
@@ -365,13 +406,10 @@ fun TagManagementScreen(
 @Composable
 fun TagItem(
     tag: Tag,
-    usageCount: Int = 0,
     onDeleteRequest: () -> Unit
 ) {
-    val isInUse = usageCount > 0
-
     ListItem(
-        modifier = Modifier.heightIn(min = 68.dp),
+        modifier = Modifier.heightIn(min = 64.dp),
         leadingContent = {
             CategoryIconBadge(
                 tag = tag,
@@ -387,58 +425,13 @@ fun TagItem(
                 color = MaterialTheme.colorScheme.onSurface
             )
         },
-        supportingContent = {
-            Text(
-                text = when {
-                    usageCount == 1 -> "1 linked transaction"
-                    usageCount > 1 -> "$usageCount linked transactions"
-                    else -> "Unused"
-                },
-                style = MaterialTheme.typography.bodySmall,
-                color = if (isInUse) {
-                    MaterialTheme.colorScheme.onSurfaceVariant
-                } else {
-                    MaterialTheme.colorScheme.outline.copy(alpha = 0.7f)
-                }
-            )
-        },
         trailingContent = {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(4.dp)
-            ) {
-                if (isInUse) {
-                    Surface(
-                        shape = RoundedCornerShape(50),
-                        color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.55f)
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(4.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Rounded.Lock,
-                                contentDescription = "In use",
-                                modifier = Modifier.size(11.dp),
-                                tint = MaterialTheme.colorScheme.onSecondaryContainer
-                            )
-                            Text(
-                                text = "$usageCount",
-                                style = MaterialTheme.typography.labelSmall,
-                                fontWeight = FontWeight.SemiBold,
-                                color = MaterialTheme.colorScheme.onSecondaryContainer
-                            )
-                        }
-                    }
-                }
-                IconButton(onClick = onDeleteRequest) {
-                    Icon(
-                        imageVector = Icons.Default.DeleteOutline,
-                        contentDescription = "Delete",
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
-                    )
-                }
+            IconButton(onClick = onDeleteRequest) {
+                Icon(
+                    imageVector = Icons.Default.DeleteOutline,
+                    contentDescription = "Delete",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                )
             }
         },
         colors = ListItemDefaults.colors(containerColor = Color.Transparent)

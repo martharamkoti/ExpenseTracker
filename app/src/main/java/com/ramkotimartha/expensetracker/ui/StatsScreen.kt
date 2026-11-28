@@ -13,6 +13,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.BarChart
 import androidx.compose.material.icons.rounded.Menu
+import androidx.compose.material.icons.rounded.Savings
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -73,9 +74,16 @@ fun StatsScreen(
                     }
                 },
                 title = {
-                    val canGoNext = remember(selectedMonth) {
-                        selectedMonth < YearMonth.now().plusMonths(1)
+                    val latestTxMonth = remember(transactions) {
+                        transactions.maxOfOrNull { it.transaction.timestamp }?.let { ts ->
+                            YearMonth.from(Instant.ofEpochMilli(ts).atZone(ZoneId.systemDefault()).toLocalDate())
+                        }
                     }
+                    val maxAllowedMonth = remember(latestTxMonth) {
+                        val now = YearMonth.now()
+                        if (latestTxMonth != null && latestTxMonth > now) latestTxMonth else now
+                    }
+                    val canGoNext = selectedMonth < maxAllowedMonth
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.Center,
@@ -183,17 +191,62 @@ fun StatsScreen(
                     SummaryInsights(
                         topExpenseName = topExpense?.key?.name,
                         totalExpense = topExpense?.value ?: 0.0,
+                        totalIncome = totalIncome,
                         onAskCoachClick = onAskCoachClick
                     )
-                    
+
                     ChartSection(title = "Expense Distribution") {
-                        PieChart(data = expensesByTag)
+                        if (expensesByTag.isEmpty()) {
+                            Surface(
+                                shape = RoundedCornerShape(18.dp),
+                                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.28f),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(18.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(14.dp)
+                                ) {
+                                    Surface(
+                                        shape = CircleShape,
+                                        color = Color(0xFF81C784).copy(alpha = 0.18f),
+                                        modifier = Modifier.size(44.dp)
+                                    ) {
+                                        Box(contentAlignment = Alignment.Center) {
+                                            Icon(
+                                                imageVector = Icons.Rounded.Savings,
+                                                contentDescription = null,
+                                                tint = Color(0xFF81C784),
+                                                modifier = Modifier.size(22.dp)
+                                            )
+                                        }
+                                    }
+                                    Column(
+                                        modifier = Modifier.weight(1f),
+                                        verticalArrangement = Arrangement.spacedBy(2.dp)
+                                    ) {
+                                        Text(
+                                            text = "No expenses recorded yet",
+                                            style = MaterialTheme.typography.titleSmall,
+                                            fontWeight = FontWeight.SemiBold
+                                        )
+                                        Text(
+                                            text = "100% of your ${CurrencyUtils.formatCurrency(totalIncome)} income is unspent so far. Category slices will appear once you log an expense.",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                }
+                            }
+                        } else {
+                            PieChart(data = expensesByTag)
+                        }
                     }
 
                     ChartSection(title = "Income vs Expense") {
                         IncomeExpenseBarChart(income = totalIncome, expense = totalExpense)
                     }
-                    
+
                     Spacer(modifier = Modifier.height(32.dp))
                 }
             }
@@ -205,6 +258,7 @@ fun StatsScreen(
 fun SummaryInsights(
     topExpenseName: String?,
     totalExpense: Double,
+    totalIncome: Double = 0.0,
     onAskCoachClick: (() -> Unit)? = null
 ) {
     Card(
@@ -237,6 +291,11 @@ fun SummaryInsights(
             if (topExpenseName != null) {
                 Text(
                     text = "$topExpenseName was your top expense this month, accounting for ${CurrencyUtils.formatCurrency(totalExpense)} total spending.",
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            } else if (totalIncome > 0.0) {
+                Text(
+                    text = "You recorded ${CurrencyUtils.formatCurrency(totalIncome)} in income this month with no expenses logged yet.",
                     style = MaterialTheme.typography.bodyMedium
                 )
             } else {

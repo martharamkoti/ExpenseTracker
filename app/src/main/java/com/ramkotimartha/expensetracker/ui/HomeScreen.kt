@@ -102,9 +102,16 @@ fun HomeScreen(
                     }
                 },
                 title = {
-                    val canGoNext = remember(selectedMonth) {
-                        selectedMonth < YearMonth.now().plusMonths(1)
+                    val latestTxMonth = remember(transactions) {
+                        transactions.maxOfOrNull { it.transaction.timestamp }?.let { ts ->
+                            YearMonth.from(Instant.ofEpochMilli(ts).atZone(ZoneId.systemDefault()).toLocalDate())
+                        }
                     }
+                    val maxAllowedMonth = remember(latestTxMonth) {
+                        val now = YearMonth.now()
+                        if (latestTxMonth != null && latestTxMonth > now) latestTxMonth else now
+                    }
+                    val canGoNext = selectedMonth < maxAllowedMonth
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.Center,
